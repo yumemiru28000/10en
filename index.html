@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>10円ゲーム（完全版：運営モード / 余白レバー / 坂補助 / 地形スムージング）</title>
+  <title>10円ゲーム（統合完全版）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body { margin:0; padding:0; background:#111; color:#eee; font-family: system-ui, sans-serif; height:100%; overflow:hidden; }
@@ -129,7 +129,6 @@
 
     .playerOnly { display:block; }
     body.admin .playerOnly { display:block; }
-
     body:not(.admin) .adminOnly { display:none; }
   </style>
 </head>
@@ -172,9 +171,9 @@
     <!-- 運営モードのみ -->
     <div class="adminOnly">
       <div class="row" id="hint">
-        ・解析: ren.png（黒=地形 / 赤=穴 / 緑=開始 / 黄=バネ）<br>
+        ・解析: ren.png（黒=地形 / 赤=穴(失敗) / 緑=開始 / 黄=バネ / 青=クリア）<br>
         ・背景: map.png（無い場合はren.pngに自動切替）<br>
-        ・地形: 黒をスムージングして凸凹軽減
+        ・表示制限: 通常は「map + 10円 + 黄色枠」のみ表示
       </div>
 
       <div class="row">
@@ -188,13 +187,8 @@
       </div>
 
       <div class="row">
-        <div class="label">最大発射速度(maxImpulse)</div>
-        <input id="maxImpulse" type="number" value="18" step="1" min="1" max="80">
-      </div>
-
-      <div class="row">
-        <div class="label">上方向係数(upwardBias)</div>
-        <input id="upwardBias" type="number" value="0.22" step="0.01" min="0" max="1">
+        <div class="label">最大発射速度(maxImpulse) ※内部で1.5倍</div>
+        <input id="maxImpulse" type="number" value="18" step="1" min="1" max="200">
       </div>
 
       <div class="row">
@@ -218,17 +212,17 @@
       </div>
 
       <div class="row">
-        <div class="label">坂補助：加速度倍率</div>
+        <div class="label">坂補助：加速度倍率（※内部で2倍）</div>
         <input id="slopeAssist" type="number" value="1.0" step="0.1" min="0" max="5">
       </div>
 
       <div class="row">
-        <div class="label">地形スムージング：回数（1〜6）</div>
+        <div class="label">地形スムージング：回数</div>
         <input id="smoothIters" type="number" value="2" step="1" min="0" max="6">
       </div>
 
       <div class="row">
-        <div class="label">地形スムージング：多数決しきい値(0.5〜0.9)</div>
+        <div class="label">地形スムージング：多数決しきい値</div>
         <input id="smoothThresh" type="number" value="0.58" step="0.01" min="0.5" max="0.9">
       </div>
 
@@ -260,12 +254,15 @@
   const MAP_URL = "map.png";
   const ADMIN_PASSWORD = "1122";
 
+  // ---- 追加：青（クリア）判定 ----
+  // 青の定義：b が高く、r/g が低め
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
     if (r < 40 && g < 40 && b < 40) return "black";
-    if (r > 180 && g < 80 && b < 80) return "red";
-    if (g > 160 && r < 120 && b < 120) return "green";
-    if (r > 180 && g > 180 && b < 120) return "yellow";
+    if (r > 180 && g < 80 && b < 80) return "red";      // 失敗
+    if (g > 160 && r < 120 && b < 120) return "green";   // 開始
+    if (r > 180 && g > 180 && b < 120) return "yellow";  // バネ
+    if (b > 180 && r < 100 && g < 140) return "blue";    // クリア（追加）
     return "empty";
   }
 
@@ -318,22 +315,17 @@
     return comps;
   }
 
-  // ----- 地形スムージング（追加）-----
-  // 3x3 近傍の多数決で黒マスクを平滑化（小さな凹凸や穴を埋める/削る）
+  // ----- 地形スムージング -----
   function smoothBinaryMask(mask, w, h, iters=2, threshold=0.58){
-    // threshold: 近傍(最大9)のうち何割黒なら黒にするか
     let src = mask;
     let dst = new Uint8Array(w*h);
-
     const idx = (x,y)=>y*w+x;
 
     for (let iter=0; iter<iters; iter++){
       dst.fill(0);
-
       for (let y=1; y<h-1; y++){
         for (let x=1; x<w-1; x++){
           let count = 0;
-          // 3x3
           count += src[idx(x-1,y-1)];
           count += src[idx(x  ,y-1)];
           count += src[idx(x+1,y-1)];
@@ -343,20 +335,12 @@
           count += src[idx(x-1,y+1)];
           count += src[idx(x  ,y+1)];
           count += src[idx(x+1,y+1)];
-
-          const ratio = count / 9;
-          dst[idx(x,y)] = (ratio >= threshold) ? 1 : 0;
+          dst[idx(x,y)] = (count/9 >= threshold) ? 1 : 0;
         }
       }
-
-      // 端は��のままコピー
       for (let x=0;x<w;x++){ dst[idx(x,0)] = src[idx(x,0)]; dst[idx(x,h-1)] = src[idx(x,h-1)]; }
       for (let y=0;y<h;y++){ dst[idx(0,y)] = src[idx(0,y)]; dst[idx(w-1,y)] = src[idx(w-1,y)]; }
-
-      // swap
-      const tmp = src;
-      src = dst;
-      dst = tmp;
+      const tmp = src; src = dst; dst = tmp;
     }
     return src;
   }
@@ -376,21 +360,16 @@
     return pts;
   }
 
-  // 点群から線分化：ギザギザ抑制のため、点を格子に丸めてから繋ぐ
   function pointsToSegmentsApproxSmooth(points, sampleStep=6, grid=2){
-    // grid: 2なら座標を2px単位で丸める → 微小凸凹の角が減る
     const segs = [];
-
     const snap = (v)=>Math.round(v / grid) * grid;
 
-    // まず間引きしつつスナップ
     const pts = [];
     for (let i=0; i<points.length; i+=sampleStep){
       const p = points[i];
       pts.push({ x: snap(p.x), y: snap(p.y) });
     }
 
-    // 近い点同士を結ぶ（長すぎ/短すぎを弾く）
     const maxD2 = (sampleStep*sampleStep*20);
     const minD2 = 4;
 
@@ -412,14 +391,13 @@
 
       if (bestJ >= 0){
         const q = pts[bestJ];
-        // さらに極端に短いものを除外
         segs.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y});
       }
     }
     return segs;
   }
 
-  function segmentToBody(Matter, seg, thickness=5, opt={}){
+  function segmentToBody(Matter, seg, thickness=6, opt={}){
     const { Bodies } = Matter;
     const x1=seg.x1, y1=seg.y1, x2=seg.x2, y2=seg.y2;
     const mx=(x1+x2)/2, my=(y1+y2)/2;
@@ -435,6 +413,7 @@
     });
   }
 
+  // ---- DOM ----
   const elWorld = document.getElementById("world");
   const statusEl = document.getElementById("status");
   const reloadBtn = document.getElementById("reloadBtn");
@@ -459,6 +438,7 @@
     return Number.isFinite(v) ? v : fallback;
   };
 
+  // ---- Matter ----
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
@@ -469,13 +449,13 @@
   let coin=null;
   let spawnPoint={x:100,y:100};
 
-  let holes=[];
-  let springs=[];
+  let holes=[];     // red
+  let goals=[];     // blue (追加)
+  let springs=[];   // yellow
 
   let touchingGround = false;
   let lastGroundNormal = null;
 
-  // 坂補助・地形判定
   let blackMaskGlobal = null;
 
   // レバー状態
@@ -489,6 +469,17 @@
     pullRatio: 0
   };
 
+  // クリア/失敗表示の簡易（alertの連発を避ける）
+  let lastResultAt = 0;
+  function showResultOncePerSec(msg){
+    const now = performance.now();
+    if (now - lastResultAt < 900) return;
+    lastResultAt = now;
+    // プレイヤーでも分かるようにブラウザ標準で表示
+    alert(msg);
+  }
+
+  // ---- admin mode ----
   function setAdminMode(on){
     document.body.classList.toggle("admin", !!on);
     adminExit.style.display = on ? "inline-block" : "none";
@@ -523,10 +514,12 @@
     }
     if (runner) { Runner.stop(runner); runner=null; }
     if (engine) { World.clear(engine.world, false); Engine.clear(engine); engine=null; }
-    holes=[]; springs=[];
+
+    holes=[]; goals=[]; springs=[];
     coin=null;
     lever.enabled=false; lever.activeSpring=null; lever.dragging=false; lever.pullRatio=0;
     blackMaskGlobal = null;
+
     window.removeEventListener("resize", resizeCanvasToFit);
   }
 
@@ -558,6 +551,7 @@
     const red   = new Uint8Array(w*h);
     const green = new Uint8Array(w*h);
     const yellow= new Uint8Array(w*h);
+    const blue  = new Uint8Array(w*h);
 
     for(let y=0;y<h;y++){
       for(let x=0;x<w;x++){
@@ -569,9 +563,10 @@
         else if (c==="red") red[p]=1;
         else if (c==="green") green[p]=1;
         else if (c==="yellow") yellow[p]=1;
+        else if (c==="blue") blue[p]=1;
       }
     }
-    return {black, red, green, yellow};
+    return {black, red, green, yellow, blue};
   }
 
   function createEngineAndRenderer(){
@@ -600,7 +595,6 @@
   }
 
   function setBackground(url){
-    // Matterのbackgroundは内部で使うだけのことがあるのでstyleも併用
     render.options.background = `url(${url})`;
     render.canvas.style.backgroundImage = `url(${url})`;
     render.canvas.style.backgroundSize = "100% 100%";
@@ -648,12 +642,30 @@
       const hole = Bodies.circle(c.centroid.x, c.centroid.y, r, {
         isStatic: true,
         isSensor: true,
-        render: { fillStyle: "rgba(255,0,0,0.22)", strokeStyle: "rgba(255,0,0,0.65)", lineWidth: 1 }
+        // 通常は見せない（運営モードだけ見せる）
+        render: { visible: false }
       });
       hole.label = "hole";
       holes.push(hole);
     }
     World.add(engine.world, holes);
+  }
+
+  function addGoalsFromComponents(blueComps){
+    goals = [];
+    for (const c of blueComps){
+      let r = Math.sqrt(c.area / Math.PI);
+      r = Math.max(14, Math.min(110, r));
+
+      const goal = Bodies.circle(c.centroid.x, c.centroid.y, r, {
+        isStatic: true,
+        isSensor: true,
+        render: { visible: false } // 通常は見せない
+      });
+      goal.label = "goal";
+      goals.push(goal);
+    }
+    World.add(engine.world, goals);
   }
 
   function addSpringsFromComponents(yellowComps){
@@ -677,7 +689,8 @@
         Math.max(10, aabb.maxX-aabb.minX),
         Math.max(10, aabb.maxY-aabb.minY),
         { isStatic:true, isSensor:true,
-          render:{ fillStyle:"rgba(255,255,0,0.10)", strokeStyle:"rgba(255,255,0,0.25)", lineWidth:1 }
+          // 通常は見せない（後で自前の黄色枠だけ描く）
+          render:{ visible:false }
         }
       );
       sensor.label = "springSensor";
@@ -688,36 +701,28 @@
   }
 
   function addTerrainFromBlack(blackMask){
-    // 1) スムージング
     const iters = Math.max(0, Math.min(6, Math.round(getNum("smoothIters", 2))));
     const thresh = Math.max(0.5, Math.min(0.9, getNum("smoothThresh", 0.58)));
     const smooth = (iters > 0) ? smoothBinaryMask(blackMask, mapW, mapH, iters, thresh) : blackMask;
 
-    // 坂補助にも“スムージング後”を使う（ノイズで角度が暴れない）
     blackMaskGlobal = smooth;
 
-    // 2) 境界点抽出
     const boundaryPts = extractBoundaryPoints(smooth, mapW, mapH);
-
-    // 3) 線分化（スムーズ版）
     const step = Math.max(2, Math.min(20, Math.round(getNum("segStep", 6))));
     const segs = pointsToSegmentsApproxSmooth(boundaryPts, step, 2);
 
-    // 4) ボディ生成（厚み少し増やして段差感減）
     const bodies = [];
     for (const seg of segs){
-      const b = segmentToBody(Matter, seg, 6, { render: { fillStyle: "#222" } });
+      const b = segmentToBody(Matter, seg, 6, {
+        // 通常は地形線を見せない（mapだけ見せる）
+        render: { visible: false }
+      });
       b.label = "terrain";
       bodies.push(b);
     }
     World.add(engine.world, bodies);
 
     return { boundaryPtsCount: boundaryPts.length, segCount: segs.length, smoothIters: iters, smoothThresh: thresh };
-  }
-
-  function findSpawnFromGreen(greenComps){
-    if (greenComps.length === 0) return {x:100,y:100};
-    return { x: greenComps[0].centroid.x, y: greenComps[0].centroid.y };
   }
 
   function nowSec(){ return performance.now()/1000; }
@@ -788,18 +793,24 @@
     return true;
   }
 
+  // ---- 要望：上向き(垂直)をゼロに ----
+  // upwardBias = 0 固定
+  const UPWARD_BIAS_FIXED = 0;
+
+  // ---- 要望：打ち出す力を初期を1.5倍 ----
+  const IMPULSE_MULT = 1.5;
+
   function launchFromSpring(s, pullRatio){
     const now = nowSec();
     if (now < s.cooldownUntil) return;
     if (!touchingGround) return;
 
     const maxImpulse = getNum("maxImpulse", 18);
-    const upwardBias = getNum("upwardBias", 0.22);
     const cooldown = Math.max(0, getNum("cooldown", 0.30));
 
-    const impulse = maxImpulse * Math.max(0, Math.min(1, pullRatio));
+    const impulse = (maxImpulse * IMPULSE_MULT) * Math.max(0, Math.min(1, pullRatio));
 
-    Body.setVelocity(coin, { x: s.dir * impulse, y: -impulse * upwardBias });
+    Body.setVelocity(coin, { x: s.dir * impulse, y: -impulse * UPWARD_BIAS_FIXED });
     Body.setAngularVelocity(coin, 0);
 
     s.cooldownUntil = now + cooldown;
@@ -856,7 +867,7 @@
   pullArea.addEventListener("pointerup", releasePointer);
   pullArea.addEventListener("pointercancel", releasePointer);
 
-  // ---- 坂補助（スムージング後の黒マスクから角度推定） ----
+  // ---- 坂補助（加速度2倍）----
   function isBlackAt(x,y){
     if (!blackMaskGlobal) return false;
     x = Math.max(0, Math.min(mapW-1, x|0));
@@ -900,6 +911,8 @@
     return { slope };
   }
 
+  const SLOPE_ACCEL_MULT = 2.0;
+
   function applySlopeAssist(){
     if (!coin) return;
     if (!touchingGround) return;
@@ -911,7 +924,7 @@
     const sin = tan / Math.sqrt(1 + tan*tan);
 
     const gMatter = engine.gravity.y;
-    const assistK = getNum("slopeAssist", 1.0);
+    const assistK = getNum("slopeAssist", 1.0) * SLOPE_ACCEL_MULT;
 
     const ax = gMatter * sin * assistK;
     const dt = 0.016;
@@ -928,6 +941,85 @@
     Body.setVelocity(coin, { x: vxClamped, y: v.y });
   }
 
+  // ---- マスク作成 ----
+  function buildMasksFromRen(){
+    const {black, red, green, yellow, blue} = buildMasks();
+    const greenComps = extractComponents(green, mapW, mapH);
+    const redComps = extractComponents(red, mapW, mapH);
+    const yellowComps = extractComponents(yellow, mapW, mapH);
+    const blueComps = extractComponents(blue, mapW, mapH);
+
+    spawnPoint = (greenComps.length ? greenComps[0].centroid : {x:100,y:100});
+
+    const terrainInfo = addTerrainFromBlack(black);
+    addHolesFromComponents(redComps);
+    addGoalsFromComponents(blueComps);
+    addSpringsFromComponents(yellowComps);
+
+    return { terrainInfo, redCount:redComps.length, yellowCount:yellowComps.length, blueCount:blueComps.length };
+  }
+
+  // ---- 表示制限：通常は map + coin + 黄色枠だけ ----
+  function isAdminMode(){
+    return document.body.classList.contains("admin");
+  }
+
+  // 黄色枠だけは自前で描画するので、センサーの可視は常にfalseのまま
+  function drawYellowFrames(){
+    if (!render || !coin) return;
+    const ctx = render.context;
+
+    for (const s of springs){
+      // プレイヤーに見せるのは「黄色枠」
+      const active = (s === lever.activeSpring);
+
+      ctx.save();
+      ctx.strokeStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.55)";
+      ctx.lineWidth = active ? 4 : 3;
+
+      const a = s.aabb;
+      ctx.strokeRect(a.minX, a.minY, a.maxX-a.minX, a.maxY-a.minY);
+
+      // 矢印も黄色で
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.7)";
+      ctx.fillText(s.dir > 0 ? "→" : "←", s.center.x, s.center.y - 22);
+
+      ctx.restore();
+    }
+  }
+
+  // adminのときだけ追加オーバーレイを描く（青/赤の領域など）
+  function drawAdminOverlays(){
+    if (!render) return;
+    const ctx = render.context;
+
+    // hole（赤）と goal（青）を可視化
+    ctx.save();
+    // holes
+    for (const h of holes){
+      ctx.beginPath();
+      ctx.arc(h.position.x, h.position.y, h.circleRadius, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(255,0,0,0.18)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,0,0,0.6)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    // goals
+    for (const g of goals){
+      ctx.beginPath();
+      ctx.arc(g.position.x, g.position.y, g.circleRadius, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(0,160,255,0.18)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,160,255,0.7)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function installEvents(){
     Events.on(engine, "collisionActive", (ev) => {
       touchingGround = false;
@@ -936,11 +1028,21 @@
       for (const pair of ev.pairs){
         const a = pair.bodyA, b = pair.bodyB;
 
+        // 失敗（赤）
         if ((a === coin && b.label==="hole") || (b === coin && a.label==="hole")){
           respawn();
+          showResultOncePerSec("失敗！");
           continue;
         }
 
+        // クリア（青）※要望：失敗みたいな感じの判定でクリア判定
+        if ((a === coin && b.label==="goal") || (b === coin && a.label==="goal")){
+          respawn();
+          showResultOncePerSec("クリア！");
+          continue;
+        }
+
+        // terrain contact
         const isTerrainContact =
           (a === coin && b.label==="terrain") || (b === coin && a.label==="terrain");
         if (isTerrainContact){
@@ -953,6 +1055,7 @@
     Events.on(engine, "afterUpdate", () => {
       if (!coin) return;
 
+      // activeSpring
       const s = nearestSpringByDistance();
       const enabled = !!s && canOperateLever(s);
 
@@ -972,21 +1075,21 @@
       // 坂補助
       applySlopeAssist();
 
-      // admin用ステータス
+      // admin status
       setStatus([
         `map: ${mapW}x${mapH}`,
         `coin: speed=${coin.speed.toFixed(2)} angVel=${coin.angularVelocity.toFixed(3)}`,
         `touchingGround: ${touchingGround}`,
-        `springs: ${springs.length}, holes: ${holes.length}`,
-        `lever: enabled=${lever.enabled} dragging=${lever.dragging} power=${Math.round(lever.pullRatio*100)}%`
+        `springs: ${springs.length}, holes: ${holes.length}, goals: ${goals.length}`,
+        `impulse: base=${getNum("maxImpulse",18)} x${IMPULSE_MULT} upwardBias=${UPWARD_BIAS_FIXED}`,
+        `slopeAssist: ui=${getNum("slopeAssist",1.0)} x${SLOPE_ACCEL_MULT}`,
       ]);
 
-      // 既存の「完全停止」をさらに限定（平坦のみ）
+      // 平坦だけ停止
       if (!touchingGround || !lastGroundNormal) return;
       const n = lastGroundNormal;
       const v = coin.velocity;
       const slopeMeasure = Math.abs(n.x);
-
       if (Math.abs(v.x) < 0.06 && Math.abs(coin.angularVelocity) < 0.02 && slopeMeasure < 0.10){
         Body.setVelocity(coin, { x: 0, y: v.y });
         Body.setAngularVelocity(coin, 0);
@@ -994,27 +1097,12 @@
     });
 
     Events.on(render, "afterRender", () => {
-      const ctx = render.context;
-      if (!coin) return;
+      // 通常：黄色枠だけ描画
+      drawYellowFrames();
 
-      for (const s of springs){
-        const active = (s === lever.activeSpring);
-        const inside = coinInsideSpring(s);
-
-        ctx.save();
-        ctx.strokeStyle = active ? "rgba(255,220,80,0.95)" : (inside ? "rgba(255,255,0,0.55)" : "rgba(255,255,0,0.18)");
-        ctx.lineWidth = active ? 4 : 2;
-        ctx.setLineDash(active ? [] : [8,6]);
-
-        const a = s.aabb;
-        ctx.strokeRect(a.minX, a.minY, a.maxX-a.minX, a.maxY-a.minY);
-
-        ctx.font = "bold 16px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.55)";
-        ctx.fillText(s.dir > 0 ? "→" : "←", s.center.x, s.center.y - 22);
-
-        ctx.restore();
+      // 運営モードだけ：赤/青の領域なども描画
+      if (isAdminMode()){
+        drawAdminOverlays();
       }
     });
   }
@@ -1026,33 +1114,21 @@
     const renImg = await loadImage(REN_URL);
     buildRenImageData(renImg);
 
-    // 背景
+    // 背景（mapが無い場合 ren にフォールバック）
     let bgOk = true;
     try { await loadImage(MAP_URL); } catch(e){ bgOk = false; console.warn("map.png load failed", e); }
 
     createEngineAndRenderer();
     setBackground(bgOk ? MAP_URL : REN_URL);
 
-    const {black, red, green, yellow} = buildMasks();
-
-    const greenComps = extractComponents(green, mapW, mapH);
-    const redComps = extractComponents(red, mapW, mapH);
-    const yellowComps = extractComponents(yellow, mapW, mapH);
-
-    spawnPoint = (greenComps.length ? greenComps[0].centroid : {x:100,y:100});
-
-    const terrainInfo = addTerrainFromBlack(black);
-    addHolesFromComponents(redComps);
-    addSpringsFromComponents(yellowComps);
+    const info = buildMasksFromRen();
     addCoin();
-
     installEvents();
 
     setStatus([
-      `map: ${mapW}x${mapH}`,
-      `terrain: boundaryPts=${terrainInfo.boundaryPtsCount} segs=${terrainInfo.segCount}`,
-      `smooth: iters=${terrainInfo.smoothIters} thresh=${terrainInfo.smoothThresh}`,
-      `ready`
+      `ready`,
+      `terrain segs=${info.terrainInfo.segCount}`,
+      `red(holes)=${info.redCount} yellow(springs)=${Math.min(6, info.yellowCount)} blue(goals)=${info.blueCount}`
     ]);
   }
 
