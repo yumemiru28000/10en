@@ -2,13 +2,12 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>10円ゲーム（余白レバー式）</title>
+  <title>10円ゲーム（完全版：運営モード / 余白レバー / 坂補助 / 地形スムージング）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body { margin:0; padding:0; background:#111; color:#eee; font-family: system-ui, sans-serif; height:100%; overflow:hidden; }
     #wrap { display:flex; height:100vh; overflow:hidden; }
 
-    /* UIは運営モードで切替 */
     #ui{
       width: 340px;
       padding: 12px;
@@ -129,9 +128,8 @@
     body.admin .adminOnly { display:block; }
 
     .playerOnly { display:block; }
-    body.admin .playerOnly { display:block; } /* adminでもプレイヤーUIは表示してOK */
+    body.admin .playerOnly { display:block; }
 
-    /* admin以外のとき、admin詳細UIを隠す */
     body:not(.admin) .adminOnly { display:none; }
   </style>
 </head>
@@ -140,7 +138,7 @@
   <div id="ui">
     <h1>10円ゲーム</h1>
 
-    <!-- プレイヤーに見える部分（常に表示） -->
+    <!-- プレイヤー表示（常に） -->
     <div class="row playerOnly" id="leverBox">
       <div id="leverTitle">
         <div>バー（引いて→離す）</div>
@@ -163,7 +161,6 @@
       </div>
     </div>
 
-    <!-- パスワード欄（常に表示） -->
     <div class="row playerOnly">
       <div class="label">運営モード（password: 1122）</div>
       <input id="adminPass" type="password" placeholder="1122">
@@ -172,12 +169,12 @@
       <div id="adminMsg" style="margin-top:6px;font-size:11px;color:#aaa;"></div>
     </div>
 
-    <!-- 運営モードでのみ見える詳細UI -->
+    <!-- 運営モードのみ -->
     <div class="adminOnly">
       <div class="row" id="hint">
-        ・入力: ren.png（黒=地形 / 赤=穴 / 緑=��始 / 黄=バネ）<br>
-        ・背景: map.png を表示（ren.png解析は維持）<br>
-        ・右側黄→左 / 左側黄→右
+        ・解析: ren.png（黒=地形 / 赤=穴 / 緑=開始 / 黄=バネ）<br>
+        ・背景: map.png（無い場合はren.pngに自動切替）<br>
+        ・地形: 黒をスムージングして凸凹軽減
       </div>
 
       <div class="row">
@@ -216,18 +213,28 @@
       </div>
 
       <div class="row">
-        <div class="label">坂補助：質量(kg) ※10円=0.0055</div>
-        <input id="coinMassKg" type="number" value="0.0055" step="0.0001" min="0.001" max="0.05">
-      </div>
-
-      <div class="row">
-        <div class="label">坂補助：角度推定範囲(px)（広いほど安定）</div>
+        <div class="label">坂補助：角度推定範囲(px)</div>
         <input id="slopeProbe" type="number" value="26" step="2" min="6" max="120">
       </div>
 
       <div class="row">
-        <div class="label">坂補助：加速度倍率（強すぎると暴れる）</div>
+        <div class="label">坂補助：加速度倍率</div>
         <input id="slopeAssist" type="number" value="1.0" step="0.1" min="0" max="5">
+      </div>
+
+      <div class="row">
+        <div class="label">地形スムージング：回数（1〜6）</div>
+        <input id="smoothIters" type="number" value="2" step="1" min="0" max="6">
+      </div>
+
+      <div class="row">
+        <div class="label">地形スムージング：多数決しきい値(0.5〜0.9)</div>
+        <input id="smoothThresh" type="number" value="0.58" step="0.01" min="0.5" max="0.9">
+      </div>
+
+      <div class="row">
+        <div class="label">地形：線分サンプル(step)</div>
+        <input id="segStep" type="number" value="6" step="1" min="2" max="20">
       </div>
 
       <div class="row">
@@ -249,14 +256,10 @@
 
 <script>
 (() => {
-  // --- 画像 ---
   const REN_URL = "ren.png";
   const MAP_URL = "map.png";
-
-  // --- 運営モード ---
   const ADMIN_PASSWORD = "1122";
 
-  // --- 色判定 ---
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
     if (r < 40 && g < 40 && b < 40) return "black";
@@ -315,6 +318,49 @@
     return comps;
   }
 
+  // ----- 地形スムージング（追加）-----
+  // 3x3 近傍の多数決で黒マスクを平滑化（小さな凹凸や穴を埋める/削る）
+  function smoothBinaryMask(mask, w, h, iters=2, threshold=0.58){
+    // threshold: 近傍(最大9)のうち何割黒なら黒にするか
+    let src = mask;
+    let dst = new Uint8Array(w*h);
+
+    const idx = (x,y)=>y*w+x;
+
+    for (let iter=0; iter<iters; iter++){
+      dst.fill(0);
+
+      for (let y=1; y<h-1; y++){
+        for (let x=1; x<w-1; x++){
+          let count = 0;
+          // 3x3
+          count += src[idx(x-1,y-1)];
+          count += src[idx(x  ,y-1)];
+          count += src[idx(x+1,y-1)];
+          count += src[idx(x-1,y  )];
+          count += src[idx(x  ,y  )];
+          count += src[idx(x+1,y  )];
+          count += src[idx(x-1,y+1)];
+          count += src[idx(x  ,y+1)];
+          count += src[idx(x+1,y+1)];
+
+          const ratio = count / 9;
+          dst[idx(x,y)] = (ratio >= threshold) ? 1 : 0;
+        }
+      }
+
+      // 端は��のままコピー
+      for (let x=0;x<w;x++){ dst[idx(x,0)] = src[idx(x,0)]; dst[idx(x,h-1)] = src[idx(x,h-1)]; }
+      for (let y=0;y<h;y++){ dst[idx(0,y)] = src[idx(0,y)]; dst[idx(w-1,y)] = src[idx(w-1,y)]; }
+
+      // swap
+      const tmp = src;
+      src = dst;
+      dst = tmp;
+    }
+    return src;
+  }
+
   function extractBoundaryPoints(blackMask, w, h){
     const pts = [];
     const idx = (x,y)=>y*w+x;
@@ -330,30 +376,50 @@
     return pts;
   }
 
-  function pointsToSegmentsApprox(points, sampleStep=6){
+  // 点群から線分化：ギザギザ抑制のため、点を格子に丸めてから繋ぐ
+  function pointsToSegmentsApproxSmooth(points, sampleStep=6, grid=2){
+    // grid: 2なら座標を2px単位で丸める → 微小凸凹の角が減る
     const segs = [];
-    for(let i=0;i<points.length;i+=sampleStep){
+
+    const snap = (v)=>Math.round(v / grid) * grid;
+
+    // まず間引きしつつスナップ
+    const pts = [];
+    for (let i=0; i<points.length; i+=sampleStep){
       const p = points[i];
-      if (!p) continue;
+      pts.push({ x: snap(p.x), y: snap(p.y) });
+    }
+
+    // 近い点同士を結ぶ（長すぎ/短すぎを弾く）
+    const maxD2 = (sampleStep*sampleStep*20);
+    const minD2 = 4;
+
+    for (let i=0; i<pts.length; i++){
+      const p = pts[i];
       let bestJ = -1;
       let bestD2 = Infinity;
-      for(let j=i+1;j<Math.min(points.length, i+200);j++){
-        const q = points[j];
+
+      for (let j=i+1; j<Math.min(pts.length, i+220); j++){
+        const q = pts[j];
         const dx=q.x-p.x, dy=q.y-p.y;
         const d2=dx*dx+dy*dy;
-        if (d2>1 && d2<bestD2 && d2< (sampleStep*sampleStep*16)) {
-          bestD2=d2; bestJ=j;
+        if (d2 < minD2) continue;
+        if (d2 < bestD2 && d2 < maxD2){
+          bestD2 = d2;
+          bestJ = j;
         }
       }
-      if (bestJ>=0){
-        const q = points[bestJ];
+
+      if (bestJ >= 0){
+        const q = pts[bestJ];
+        // さらに極端に短いものを除外
         segs.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y});
       }
     }
     return segs;
   }
 
-  function segmentToBody(Matter, seg, thickness=4, opt={}){
+  function segmentToBody(Matter, seg, thickness=5, opt={}){
     const { Bodies } = Matter;
     const x1=seg.x1, y1=seg.y1, x2=seg.x2, y2=seg.y2;
     const mx=(x1+x2)/2, my=(y1+y2)/2;
@@ -362,7 +428,7 @@
     const ang=Math.atan2(dy,dx);
     return Bodies.rectangle(mx, my, len, thickness, {
       isStatic:true,
-      friction: 0.9,
+      friction: 0.6,
       restitution: 0,
       angle: ang,
       ...opt
@@ -370,19 +436,10 @@
   }
 
   const elWorld = document.getElementById("world");
-  const statusEl = document.getElementById("status"); // adminのみ実際に見える
+  const statusEl = document.getElementById("status");
   const reloadBtn = document.getElementById("reloadBtn");
   const respawnBtn = document.getElementById("respawnBtn");
 
-  // admin inputs（adminじゃないと存在しないので取得は関数で安全に）
-  const getNum = (id, fallback) => {
-    const el = document.getElementById(id);
-    if (!el) return fallback;
-    const v = parseFloat(el.value);
-    return Number.isFinite(v) ? v : fallback;
-  };
-
-  // lever UI elements（常に存在）
   const pullArea = document.getElementById("pullArea");
   const pullFill = document.getElementById("pullFill");
   const pullKnob = document.getElementById("pullKnob");
@@ -390,11 +447,17 @@
   const powChip = document.getElementById("powChip");
   const dirChip = document.getElementById("dirChip");
 
-  // admin auth elements（常に存在）
   const adminPass = document.getElementById("adminPass");
   const adminEnter = document.getElementById("adminEnter");
   const adminExit = document.getElementById("adminExit");
   const adminMsg = document.getElementById("adminMsg");
+
+  const getNum = (id, fallback) => {
+    const el = document.getElementById(id);
+    if (!el) return fallback;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : fallback;
+  };
 
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
@@ -407,12 +470,12 @@
   let spawnPoint={x:100,y:100};
 
   let holes=[];
-  let springs=[]; // { sensor, center, dir, aabb, cooldownUntil }
+  let springs=[];
 
   let touchingGround = false;
   let lastGroundNormal = null;
 
-  // 坂補助用：地形判定に黒マスクを保持
+  // 坂補助・地形判定
   let blackMaskGlobal = null;
 
   // レバー状態
@@ -426,14 +489,11 @@
     pullRatio: 0
   };
 
-  // --- admin mode state ---
   function setAdminMode(on){
     document.body.classList.toggle("admin", !!on);
-    if (adminExit) adminExit.style.display = on ? "inline-block" : "none";
+    adminExit.style.display = on ? "inline-block" : "none";
   }
-  function isAdminMode(){
-    return document.body.classList.contains("admin");
-  }
+  setAdminMode(false);
 
   adminEnter.addEventListener("click", () => {
     if (adminPass.value === ADMIN_PASSWORD){
@@ -448,9 +508,6 @@
     setAdminMode(false);
     adminMsg.textContent = "運営モードOFF";
   });
-
-  // 初期はプレイヤー
-  setAdminMode(false);
 
   function setStatus(lines){
     if (!statusEl) return;
@@ -538,18 +595,17 @@
     Render.run(render);
     Runner.run(runner, engine);
 
-    // ---- map.png 表示の修正（確実に出す）----
-    // 1) map.png が無い/読めない時は ren.png にフォールバック
-    // 2) 100% 100% で座標一致（ren.pngサイズをcanvas論理サイズにしてるので一致）
-    const bgUrl = MAP_URL;
-    render.options.background = `url(${bgUrl})`;
-    render.canvas.style.backgroundImage = `url(${bgUrl})`;
+    requestAnimationFrame(resizeCanvasToFit);
+    window.addEventListener("resize", resizeCanvasToFit);
+  }
+
+  function setBackground(url){
+    // Matterのbackgroundは内部で使うだけのことがあるのでstyleも併用
+    render.options.background = `url(${url})`;
+    render.canvas.style.backgroundImage = `url(${url})`;
     render.canvas.style.backgroundSize = "100% 100%";
     render.canvas.style.backgroundRepeat = "no-repeat";
     render.canvas.style.backgroundPosition = "0 0";
-
-    requestAnimationFrame(resizeCanvasToFit);
-    window.addEventListener("resize", resizeCanvasToFit);
   }
 
   function resizeCanvasToFit(){
@@ -566,8 +622,8 @@
 
     coin = Bodies.circle(spawnPoint.x, spawnPoint.y, r, {
       restitution: 0,
-      friction: 0.02,          // 坂で止まりにくく（小さめ）
-      frictionStatic: 0.4,     // 静止摩擦を弱める
+      friction: 0.02,
+      frictionStatic: 0.4,
       frictionAir: 0.01,
       density: 0.005,
       render: { fillStyle: "#b87333", strokeStyle: "#5b2a12", lineWidth: 2 }
@@ -606,9 +662,7 @@
     const picked = yellowComps.slice(0, 6);
 
     for (const c of picked){
-      // 右側黄色→左、左側黄色→右
       const dir = (c.centroid.x < centerX) ? +1 : -1;
-
       const pad = 8;
       const aabb = {
         minX: c.aabb.minX - pad,
@@ -634,17 +688,31 @@
   }
 
   function addTerrainFromBlack(blackMask){
-    const boundaryPts = extractBoundaryPoints(blackMask, mapW, mapH);
-    const segs = pointsToSegmentsApprox(boundaryPts, 6);
+    // 1) スムージング
+    const iters = Math.max(0, Math.min(6, Math.round(getNum("smoothIters", 2))));
+    const thresh = Math.max(0.5, Math.min(0.9, getNum("smoothThresh", 0.58)));
+    const smooth = (iters > 0) ? smoothBinaryMask(blackMask, mapW, mapH, iters, thresh) : blackMask;
 
+    // 坂補助にも“スムージング後”を使う（ノイズで角度が暴れない）
+    blackMaskGlobal = smooth;
+
+    // 2) 境界点抽出
+    const boundaryPts = extractBoundaryPoints(smooth, mapW, mapH);
+
+    // 3) 線分化（スムーズ版）
+    const step = Math.max(2, Math.min(20, Math.round(getNum("segStep", 6))));
+    const segs = pointsToSegmentsApproxSmooth(boundaryPts, step, 2);
+
+    // 4) ボディ生成（厚み少し増やして段差感減）
     const bodies = [];
     for (const seg of segs){
-      const b = segmentToBody(Matter, seg, 4, { render: { fillStyle: "#222" } });
+      const b = segmentToBody(Matter, seg, 6, { render: { fillStyle: "#222" } });
       b.label = "terrain";
       bodies.push(b);
     }
     World.add(engine.world, bodies);
-    return { boundaryPtsCount: boundaryPts.length, segCount: segs.length };
+
+    return { boundaryPtsCount: boundaryPts.length, segCount: segs.length, smoothIters: iters, smoothThresh: thresh };
   }
 
   function findSpawnFromGreen(greenComps){
@@ -737,7 +805,7 @@
     s.cooldownUntil = now + cooldown;
   }
 
-  // --- レバー入力 ---
+  // ---- レバー入力 ----
   pullArea.addEventListener("pointerdown", (e) => {
     if (!coin) return;
     if (!lever.enabled) return;
@@ -761,7 +829,6 @@
     const maxPull = Math.max(10, getNum("maxPull", 150));
     const dx = lever.currentX - lever.startX;
 
-    // 発射方向の逆へ引いた分だけ溜まる
     const pullSigned = -s.dir * dx;
     const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
     lever.pullRatio = Math.max(0, Math.min(1, pullPx / maxPull));
@@ -789,7 +856,7 @@
   pullArea.addEventListener("pointerup", releasePointer);
   pullArea.addEventListener("pointercancel", releasePointer);
 
-  // ---- 坂補助：黒マスクから局所勾配推定 → 坂方向加速度を加える ----
+  // ---- 坂補助（スムージング後の黒マスクから角度推定） ----
   function isBlackAt(x,y){
     if (!blackMaskGlobal) return false;
     x = Math.max(0, Math.min(mapW-1, x|0));
@@ -797,21 +864,17 @@
     return blackMaskGlobal[y*mapW + x] === 1;
   }
 
-  // コイン直下の地面高さをざっくり探す（下方向に黒境界を探す）
   function findGroundY(x, startY, maxDown=80){
     const sx = x|0;
     let y = Math.max(0, Math.min(mapH-1, startY|0));
     for (let i=0;i<maxDown;i++){
       const yy = y + i;
       if (yy >= mapH) break;
-      // 「黒の地形」は塗りなので、境界っぽいところを探すために
-      // 黒の上に空(非黒)がある点を「地面」とみなす
       if (isBlackAt(sx, yy) && !isBlackAt(sx, yy-1)) return yy;
     }
     return null;
   }
 
-  // 角度推定：左右の地面高さの差から slope を推定
   function estimateSlopeAtCoin(){
     if (!coin) return null;
 
@@ -819,26 +882,22 @@
     const px = coin.position.x;
     const py = coin.position.y;
 
-    // コイン直下付近（コインの半径分だけ下）から探索開始
     const r = getNum("coinR", 32);
     const startY = py + r * 0.6;
 
     const xL = Math.max(0, Math.min(mapW-1, (px - probe)|0));
     const xR = Math.max(0, Math.min(mapW-1, (px + probe)|0));
 
-    const yL = findGroundY(xL, startY, 100);
-    const yR = findGroundY(xR, startY, 100);
-
+    const yL = findGroundY(xL, startY, 120);
+    const yR = findGroundY(xR, startY, 120);
     if (yL == null || yR == null) return null;
 
     const dx = (xR - xL);
     if (dx <= 0) return null;
 
-    // dyが正：右が低い（画面y下方向が+）＝右下がり
     const dy = (yR - yL);
-    const slope = dy / dx; // ≒ tan(theta)
-
-    return { slope, yL, yR, xL, xR };
+    const slope = dy / dx;
+    return { slope };
   }
 
   function applySlopeAssist(){
@@ -848,30 +907,19 @@
     const est = estimateSlopeAtCoin();
     if (!est) return;
 
-    // tan(theta)=slope から sin(theta) っぽい値を作る
-    // sin = tan / sqrt(1+tan^2)
     const tan = est.slope;
     const sin = tan / Math.sqrt(1 + tan*tan);
 
-    // 下り方向：右下がり(tan>0)なら右へ加速、左下がり(tan<0)なら左へ加速
-    const downhillDir = (sin > 0) ? +1 : (sin < 0 ? -1 : 0);
-    if (downhillDir === 0) return;
-
-    // 「重力 * sin(theta)」が斜面方向加速度
-    const gMatter = engine.gravity.y; // Matterの重力スケール（このゲームの世界単位）
+    const gMatter = engine.gravity.y;
     const assistK = getNum("slopeAssist", 1.0);
 
-    // 質量(kg)は指定されたが、Matterのmassは別単位なので「体感重視」で加速度として加える
-    // a = g * sin(theta) * assistK
     const ax = gMatter * sin * assistK;
-
-    // 速度に加速度を加える（dtを固定近似）
-    // Runnerのdtはだいたい 16.6ms、0.016を使う
     const dt = 0.016;
+
     const v = coin.velocity;
     const newVx = v.x + ax * dt;
 
-    // “途中で止まる”対策：ある程度の最低速度を保証（下り方向）
+    const downhillDir = (sin > 0) ? +1 : -1;
     const minRoll = 0.08;
     const vxClamped = (Math.sign(newVx) === downhillDir)
       ? (Math.abs(newVx) < minRoll ? downhillDir * minRoll : newVx)
@@ -905,7 +953,6 @@
     Events.on(engine, "afterUpdate", () => {
       if (!coin) return;
 
-      // activeSpring選択
       const s = nearestSpringByDistance();
       const enabled = !!s && canOperateLever(s);
 
@@ -920,41 +967,32 @@
           lever.activeSpring = null;
         }
       }
-
       setLeverUI(lever.enabled, lever.pullRatio, lever.activeSpring);
 
-      // ---- 坂補助（追加）----
+      // 坂補助
       applySlopeAssist();
 
-      // status（adminのみ見える）
-      const sp = coin.speed.toFixed(2);
-      const av = coin.angularVelocity.toFixed(3);
-      const dir = lever.activeSpring ? lever.activeSpring.dir : 0;
-
+      // admin用ステータス
       setStatus([
         `map: ${mapW}x${mapH}`,
-        `coin: speed=${sp} angVel=${av}`,
+        `coin: speed=${coin.speed.toFixed(2)} angVel=${coin.angularVelocity.toFixed(3)}`,
         `touchingGround: ${touchingGround}`,
         `springs: ${springs.length}, holes: ${holes.length}`,
-        `lever: enabled=${lever.enabled} dragging=${lever.dragging} power=${Math.round(lever.pullRatio*100)}%`,
-        `activeSpring: ${lever.activeSpring ? (dir>0 ? "LEFT(Y)->RIGHT" : "RIGHT(Y)->LEFT") : "-"}`
+        `lever: enabled=${lever.enabled} dragging=${lever.dragging} power=${Math.round(lever.pullRatio*100)}%`
       ]);
 
-      // 既存の「嘘静止摩擦」は坂補助と相性が悪いので、強制停止は弱める
-      // （完全削除はしない。平坦で微振動止める用途だけ残す）
+      // 既存の「完全停止」をさらに限定（平坦のみ）
       if (!touchingGround || !lastGroundNormal) return;
       const n = lastGroundNormal;
       const v = coin.velocity;
-
       const slopeMeasure = Math.abs(n.x);
-      // ほぼ平坦の時だけ止める（坂では止めない）
-      if (Math.abs(v.x) < 0.06 && Math.abs(coin.angularVelocity) < 0.02 && slopeMeasure < 0.12){
+
+      if (Math.abs(v.x) < 0.06 && Math.abs(coin.angularVelocity) < 0.02 && slopeMeasure < 0.10){
         Body.setVelocity(coin, { x: 0, y: v.y });
         Body.setAngularVelocity(coin, 0);
       }
     });
 
-    // 黄色エリア可視化（デバッグ用：admin時だけ濃く）
     Events.on(render, "afterRender", () => {
       const ctx = render.context;
       if (!coin) return;
@@ -988,39 +1026,39 @@
     const renImg = await loadImage(REN_URL);
     buildRenImageData(renImg);
 
-    // map.png が読み込めない場合に備えて事前チェック＆フォールバック
+    // 背景
     let bgOk = true;
     try { await loadImage(MAP_URL); } catch(e){ bgOk = false; console.warn("map.png load failed", e); }
 
     createEngineAndRenderer();
-
-    // フォールバック適用
-    const bgUrl = bgOk ? MAP_URL : REN_URL;
-    render.options.background = `url(${bgUrl})`;
-    render.canvas.style.backgroundImage = `url(${bgUrl})`;
+    setBackground(bgOk ? MAP_URL : REN_URL);
 
     const {black, red, green, yellow} = buildMasks();
-    blackMaskGlobal = black; // 坂補助に使う
 
     const greenComps = extractComponents(green, mapW, mapH);
     const redComps = extractComponents(red, mapW, mapH);
     const yellowComps = extractComponents(yellow, mapW, mapH);
 
-    spawnPoint = findSpawnFromGreen(greenComps);
+    spawnPoint = (greenComps.length ? greenComps[0].centroid : {x:100,y:100});
 
-    addTerrainFromBlack(black);
+    const terrainInfo = addTerrainFromBlack(black);
     addHolesFromComponents(redComps);
     addSpringsFromComponents(yellowComps);
     addCoin();
 
     installEvents();
+
+    setStatus([
+      `map: ${mapW}x${mapH}`,
+      `terrain: boundaryPts=${terrainInfo.boundaryPtsCount} segs=${terrainInfo.segCount}`,
+      `smooth: iters=${terrainInfo.smoothIters} thresh=${terrainInfo.smoothThresh}`,
+      `ready`
+    ]);
   }
 
-  // adminのときだけ有効なUIイベント（要素が無い場合もあるのでガード）
   if (reloadBtn) reloadBtn.addEventListener("click", () => rebuild());
   if (respawnBtn) respawnBtn.addEventListener("click", () => respawn());
 
-  // start
   rebuild().catch(err => {
     console.error(err);
     setStatus(["ERROR:", String(err)]);
