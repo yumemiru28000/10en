@@ -1,16 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>10円ゲーム（レバーUIは余白）</title>
+  <title>10円ゲーム（運営UI + 余白レバー + 坂物理改善）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body { margin:0; padding:0; background:#111; color:#eee; font-family: system-ui, sans-serif; height:100%; overflow:hidden; }
     #wrap { display:flex; height:100vh; overflow:hidden; }
 
     #ui{
-      width: 340px;
+      width: 360px;
       padding: 12px;
       box-sizing:border-box;
       border-right: 1px solid #333;
@@ -25,11 +24,10 @@
       padding: 7px 10px; cursor:pointer; font-size: 12px;
     }
     #ui button:hover { background:#444; }
-    #ui input[type="number"]{
-      width: 110px; background:#222; color:#eee; border:1px solid #555; border-radius:6px; padding:4px 8px;
+    #ui input[type="number"], #ui input[type="password"]{
+      width: 140px; background:#222; color:#eee; border:1px solid #555; border-radius:6px; padding:6px 8px;
     }
     #hint { color:#9bd; line-height: 1.5; font-size: 12px; }
-    #status { white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color:#cfc; }
 
     /* レバーUI（余白に常に存在、条件で有効/無効） */
     #leverBox{
@@ -120,55 +118,24 @@
       white-space:nowrap;
     }
 
-    /* world */
+    /* 運営UIは hidden で丸ごと隠す */
+    .hidden{ display:none !important; }
+
     #world { flex: 1; position: relative; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#000; }
     #world canvas { display:block; max-width:100%; max-height:100%; width:auto; height:auto; background:#000; }
+    #status { white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color:#cfc; }
   </style>
 </head>
 <body>
 <div id="wrap">
   <div id="ui">
-    <h1>10円ゲーム（余白レバー式）</h1>
+    <h1>10円ゲーム</h1>
 
+    <!-- プレイヤー向け：常に表示 -->
     <div class="row" id="hint">
-      ・黄色（バネ）にコインが近いときだけレバーが有効になります<br>
-      ・レバーをつかんで引っ張る → 離すと戻り、その距離で発射力が決まります<br>
-      ・右側の黄色 → 左へ / 左側の黄色 → 右へ
-    </div>
-
-    <div class="row">
-      <div class="label">コイン半径(px)</div>
-      <input id="coinR" type="number" value="32" min="4" max="128">
-    </div>
-
-    <div class="row">
-      <div class="label">重力（Matter）</div>
-      <input id="gravityY" type="number" value="1" step="0.1" min="0" max="5">
-    </div>
-
-    <div class="row">
-      <div class="label">最大発射速度(maxImpulse)</div>
-      <input id="maxImpulse" type="number" value="18" step="1" min="1" max="80">
-    </div>
-
-    <div class="row">
-      <div class="label">上方向係数(upwardBias)</div>
-      <input id="upwardBias" type="number" value="0.22" step="0.01" min="0" max="1">
-    </div>
-
-    <div class="row">
-      <div class="label">最大引き距離(maxPull)</div>
-      <input id="maxPull" type="number" value="150" step="10" min="40" max="500">
-    </div>
-
-    <div class="row">
-      <div class="label">レバーが有効になる距離(px)</div>
-      <input id="nearDist" type="number" value="180" step="10" min="20" max="800">
-    </div>
-
-    <div class="row">
-      <div class="label">クールタイム(s)</div>
-      <input id="cooldown" type="number" value="0.30" step="0.05" min="0" max="2">
+      ・黄色（バネ）にコインが近いときレバーが有効<br>
+      ・引っ張る → 離すと戻り、その距離で発射力<br>
+      ・右の黄色→左 / 左の黄色→右
     </div>
 
     <div class="row" id="leverBox">
@@ -188,19 +155,65 @@
       </div>
 
       <div id="leverMeta">
-        対象: コインの近くの黄色（最寄り）<br>
-        条件: 地面に接地 & 有効距離内 のとき操作可能
+        対象: 近くの黄色（最寄り）<br>
+        条件: 接地 & 有効距離内
       </div>
     </div>
 
+    <!-- 運営モード：パスワード -->
     <div class="row">
-      <button id="reloadBtn">ren.png から再生成</button>
-      <button id="respawnBtn">リスポーン</button>
+      <div class="label">運営モード（password: 1122）</div>
+      <input id="adminPw" type="password" placeholder="password">
+      <button id="adminBtn">決定</button>
+      <button id="adminOffBtn" class="hidden">運営OFF</button>
     </div>
 
-    <div class="row">
-      <div class="label">状態</div>
-      <div id="status">loading...</div>
+    <!-- 運営UI：初期は隠す -->
+    <div id="adminPanel" class="hidden">
+      <div class="row">
+        <div class="label">コイン半径(px)</div>
+        <input id="coinR" type="number" value="32" min="4" max="128">
+      </div>
+
+      <div class="row">
+        <div class="label">重力（Matter）</div>
+        <input id="gravityY" type="number" value="1" step="0.1" min="0" max="5">
+      </div>
+
+      <div class="row">
+        <div class="label">最大発射速度(maxImpulse)</div>
+        <input id="maxImpulse" type="number" value="18" step="1" min="1" max="80">
+      </div>
+
+      <div class="row">
+        <div class="label">上方向係数(upwardBias)</div>
+        <input id="upwardBias" type="number" value="0.22" step="0.01" min="0" max="1">
+      </div>
+
+      <div class="row">
+        <div class="label">最大引き距離(maxPull)</div>
+        <input id="maxPull" type="number" value="150" step="10" min="40" max="500">
+      </div>
+
+      <div class="row">
+        <div class="label">レバーが有効になる距離(px)</div>
+        <input id="nearDist" type="number" value="180" step="10" min="20" max="800">
+      </div>
+
+      <div class="row">
+        <div class="label">クールタイム(s)</div>
+        <input id="cooldown" type="number" value="0.30" step="0.05" min="0" max="2">
+      </div>
+
+      <div class="row">
+        <button id="reloadBtn">ren.png から再生成</button>
+        <button id="respawnBtn">リスポーン</button>
+      </div>
+
+      <div class="row">
+        <div class="label">状態</div>
+        <div id="status">loading...</div>
+      </div>
     </div>
   </div>
 
@@ -212,7 +225,9 @@
 <script>
 (() => {
   const REN_URL = "ren.png";
+  const MAP_URL = "map.png";
 
+  // --- 色判定 ---
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
     if (r < 40 && g < 40 && b < 40) return "black";
@@ -222,6 +237,7 @@
     return "empty";
   }
 
+  // 4近傍の島抽出
   function extractComponents(mask, w, h){
     const visited = new Uint8Array(w*h);
     const comps = [];
@@ -271,6 +287,7 @@
     return comps;
   }
 
+  // 黒境界点
   function extractBoundaryPoints(blackMask, w, h){
     const pts = [];
     const idx = (x,y)=>y*w+x;
@@ -291,6 +308,7 @@
     for(let i=0;i<points.length;i+=sampleStep){
       const p = points[i];
       if (!p) continue;
+
       let bestJ = -1;
       let bestD2 = Infinity;
       for(let j=i+1;j<Math.min(points.length, i+200);j++){
@@ -316,17 +334,23 @@
     const dx=x2-x1, dy=y2-y1;
     const len=Math.hypot(dx,dy);
     const ang=Math.atan2(dy,dx);
-    return Bodies.rectangle(mx, my, len, thickness, {
+    const body = Bodies.rectangle(mx, my, len, thickness, {
       isStatic:true,
-      friction: 0.9,
+      friction: 0.2,
       restitution: 0,
       angle: ang,
       ...opt
     });
+    // 坂判定のために情報を持たせる
+    body.plugin = body.plugin || {};
+    body.plugin.slope = { angle: ang, thickness, len };
+    return body;
   }
 
+  // --- UI elements ---
   const elWorld = document.getElementById("world");
   const statusEl = document.getElementById("status");
+
   const reloadBtn = document.getElementById("reloadBtn");
   const respawnBtn = document.getElementById("respawnBtn");
 
@@ -338,7 +362,7 @@
   const nearDistInput = document.getElementById("nearDist");
   const cooldownInput = document.getElementById("cooldown");
 
-  // レバーUI elements
+  // レバーUI
   const pullArea = document.getElementById("pullArea");
   const pullFill = document.getElementById("pullFill");
   const pullKnob = document.getElementById("pullKnob");
@@ -346,6 +370,29 @@
   const powChip = document.getElementById("powChip");
   const dirChip = document.getElementById("dirChip");
 
+  // 運営モード
+  const adminPw = document.getElementById("adminPw");
+  const adminBtn = document.getElementById("adminBtn");
+  const adminOffBtn = document.getElementById("adminOffBtn");
+  const adminPanel = document.getElementById("adminPanel");
+
+  let isAdmin = false;
+  function setAdminMode(on){
+    isAdmin = on;
+    adminPanel.classList.toggle("hidden", !on);
+    adminOffBtn.classList.toggle("hidden", !on);
+    adminBtn.disabled = on;
+    adminPw.disabled = on;
+    if (!on) adminPw.value = "";
+  }
+  adminBtn.addEventListener("click", () => {
+    if (adminPw.value === "1122") setAdminMode(true);
+    else alert("パスワードが違います");
+  });
+  adminOffBtn.addEventListener("click", () => setAdminMode(false));
+  setAdminMode(false);
+
+  // --- Matter ---
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
@@ -357,15 +404,19 @@
   let spawnPoint={x:100,y:100};
 
   let holes=[];
-  let springs=[]; // { sensor, center, dir, aabb, cooldownUntil }
+  let springs=[];  // { sensor, center, dir, aabb, cooldownUntil }
+  let terrains=[]; // terrain bodies (for slope physics)
 
   let touchingGround = false;
   let lastGroundNormal = null;
 
+  // 坂物理用：前フレーム位置
+  let prevCoinPos = null;
+
   // 余白レバー状態
   let lever = {
     enabled: false,
-    activeSpring: null,   // 最寄りの黄色
+    activeSpring: null,
     dragging: false,
     pointerId: null,
     startX: 0,
@@ -373,7 +424,10 @@
     pullRatio: 0
   };
 
-  function setStatus(lines){ statusEl.textContent = lines.join("\n"); }
+  function setStatus(lines){
+    if (!statusEl) return;
+    statusEl.textContent = lines.join("\n");
+  }
 
   function destroyWorld(){
     if (render) {
@@ -384,17 +438,19 @@
     }
     if (runner) { Runner.stop(runner); runner=null; }
     if (engine) { World.clear(engine.world, false); Engine.clear(engine); engine=null; }
-    holes=[]; springs=[];
+    holes=[]; springs=[]; terrains=[];
     coin=null;
+    prevCoinPos=null;
     lever.enabled=false; lever.activeSpring=null; lever.dragging=false; lever.pullRatio=0;
+    window.removeEventListener("resize", resizeCanvasToFit);
   }
 
-  async function loadRenPng(){
+  async function loadImage(url){
     return new Promise((resolve,reject)=>{
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = reject;
-      img.src = REN_URL + "?t=" + Date.now();
+      img.src = url + "?t=" + Date.now();
     });
   }
 
@@ -435,7 +491,7 @@
 
   function createEngineAndRenderer(){
     engine = Engine.create();
-    engine.gravity.y = parseFloat(gravityYInput.value) || 1;
+    engine.gravity.y = parseFloat(gravityYInput?.value || "1") || 1;
 
     render = Render.create({
       element: elWorld,
@@ -454,9 +510,13 @@
     Render.run(render);
     Runner.run(runner, engine);
 
-    render.options.background = `url(${REN_URL})`;
+    // --- map.png 表示（確実に出す：canvas style へ） ---
+    // ren.png は解析用、map.png は見た目用
+    render.canvas.style.backgroundImage = `url(${MAP_URL})`;
     render.canvas.style.backgroundSize = "100% 100%";
     render.canvas.style.backgroundRepeat = "no-repeat";
+    render.canvas.style.backgroundPosition = "0 0";
+    render.canvas.style.backgroundColor = "#000";
 
     requestAnimationFrame(resizeCanvasToFit);
     window.addEventListener("resize", resizeCanvasToFit);
@@ -472,18 +532,20 @@
   }
 
   function addCoin(){
-    const r = parseFloat(coinRInput.value) || 32;
+    const r = parseFloat(coinRInput?.value || "32") || 32;
 
     coin = Bodies.circle(spawnPoint.x, spawnPoint.y, r, {
       restitution: 0,
-      friction: 0.05,
-      frictionStatic: 0.85,
-      frictionAir: 0.01,
+      friction: 0.0,
+      frictionStatic: 0.0,
+      frictionAir: 0.02,
       density: 0.005,
+      inertia: Infinity, // 回転物理は不要（要件）
       render: { fillStyle: "#b87333", strokeStyle: "#5b2a12", lineWidth: 2 }
     });
 
     World.add(engine.world, coin);
+    prevCoinPos = { x: coin.position.x, y: coin.position.y };
   }
 
   function respawn(){
@@ -491,6 +553,7 @@
     Body.setPosition(coin, {x:spawnPoint.x, y:spawnPoint.y});
     Body.setVelocity(coin, {x:0, y:0});
     Body.setAngularVelocity(coin, 0);
+    prevCoinPos = { x: coin.position.x, y: coin.position.y };
   }
 
   function addHolesFromComponents(redComps){
@@ -516,7 +579,7 @@
     const picked = yellowComps.slice(0, 6);
 
     for (const c of picked){
-      // 要望：右側の黄色は左へ、左側の黄色は右へ
+      // 右側の黄色は左へ、左側の黄色は右へ
       const dir = (c.centroid.x < centerX) ? +1 : -1;
 
       const pad = 8;
@@ -533,7 +596,7 @@
         Math.max(10, aabb.maxX-aabb.minX),
         Math.max(10, aabb.maxY-aabb.minY),
         { isStatic:true, isSensor:true,
-          render:{ fillStyle:"rgba(255,255,0,0.10)", strokeStyle:"rgba(255,255,0,0.35)", lineWidth:1 }
+          render:{ fillStyle:"rgba(255,255,0,0.08)", strokeStyle:"rgba(255,255,0,0.25)", lineWidth:1 }
         }
       );
       sensor.label = "springSensor";
@@ -555,10 +618,11 @@
 
     const bodies = [];
     for (const seg of segs){
-      const b = segmentToBody(Matter, seg, 4, { render: { fillStyle: "#222" } });
+      const b = segmentToBody(Matter, seg, 6, { render: { fillStyle: "#222" } });
       b.label = "terrain";
       bodies.push(b);
     }
+    terrains = bodies;
     World.add(engine.world, bodies);
     return { boundaryPtsCount: boundaryPts.length, segCount: segs.length };
   }
@@ -577,18 +641,15 @@
   }
 
   function nearestSpringByDistance(){
-    const nearDist = Math.max(0, parseFloat(nearDistInput.value) || 180);
+    const nearDist = Math.max(0, parseFloat(nearDistInput?.value || "180") || 180);
     let best=null, bestD2=Infinity;
 
     for (const s of springs){
       const dx = coin.position.x - s.center.x;
       const dy = coin.position.y - s.center.y;
       const d2 = dx*dx + dy*dy;
-
-      // 「黄色の近く」判定：AABB内 or 中心距離
       const near = coinInsideSpring(s) || (d2 <= nearDist*nearDist);
       if (!near) continue;
-
       if (d2 < bestD2){
         bestD2 = d2;
         best = s;
@@ -634,7 +695,6 @@
     const now = nowSec();
     if (now < s.cooldownUntil) return false;
     if (!touchingGround) return false;
-    // “近く”判定を満たしていること（nearestSpringByDistanceの結果を使う）
     return true;
   }
 
@@ -643,20 +703,19 @@
     if (now < s.cooldownUntil) return;
     if (!touchingGround) return;
 
-    const maxImpulse = parseFloat(maxImpulseInput.value) || 18;
-    const upwardBias = parseFloat(upwardBiasInput.value) || 0.22;
-    const cooldown = Math.max(0, parseFloat(cooldownInput.value) || 0.30);
+    const maxImpulse = parseFloat(maxImpulseInput?.value || "18") || 18;
+    const upwardBias = parseFloat(upwardBiasInput?.value || "0.22") || 0.22;
+    const cooldown = Math.max(0, parseFloat(cooldownInput?.value || "0.30") || 0.30);
 
     const impulse = maxImpulse * Math.max(0, Math.min(1, pullRatio));
 
-    // 速度リセットして一回だけ発射（要件）
     Body.setVelocity(coin, { x: s.dir * impulse, y: -impulse * upwardBias });
     Body.setAngularVelocity(coin, 0);
 
     s.cooldownUntil = now + cooldown;
   }
 
-  // 余白レバー入力（引っ張る）
+  // --- 余白レバー入力 ---
   pullArea.addEventListener("pointerdown", (e) => {
     if (!coin) return;
     if (!lever.enabled) return;
@@ -677,11 +736,9 @@
     const s = lever.activeSpring;
     if (!s) return;
 
-    const maxPull = Math.max(10, parseFloat(maxPullInput.value) || 150);
+    const maxPull = Math.max(10, parseFloat(maxPullInput?.value || "150") || 150);
 
-    // 引き量：発射方向の逆へ引いた分だけ溜まる
-    // s.dir=+1(右に飛ばす) -> 左へ引く(Δx<0)で増える
-    // s.dir=-1(左に飛ばす) -> 右へ引く(Δx>0)で増える
+    // 発射方向の逆に引いた分だけ溜まる
     const dx = lever.currentX - lever.startX;
     const pullSigned = -s.dir * dx;
     const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
@@ -699,21 +756,146 @@
     const s = lever.activeSpring;
     const ratio = lever.pullRatio;
 
-    // 離した瞬間に発射
     if (s && ratio > 0 && canOperateLever(s)){
       launchFromSpring(s, ratio);
     }
 
-    // 戻る（UIは0に戻る）
+    // 戻る
     lever.pullRatio = 0;
     setLeverUI(lever.enabled, 0, lever.activeSpring);
   }
-
   pullArea.addEventListener("pointerup", releasePointer);
   pullArea.addEventListener("pointercancel", releasePointer);
 
+  // -------------------------
+  // 坂物理（要件対応）
+  // -------------------------
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  // 線分P0->P1と、点Cの距離^2（最近点）
+  function dist2PointToSegment(px,py, ax,ay, bx,by){
+    const abx = bx-ax, aby = by-ay;
+    const apx = px-ax, apy = py-ay;
+    const ab2 = abx*abx + aby*aby;
+    const t = ab2 > 0 ? clamp((apx*abx + apy*aby)/ab2, 0, 1) : 0;
+    const cx = ax + abx*t;
+    const cy = ay + aby*t;
+    const dx = px - cx;
+    const dy = py - cy;
+    return { d2: dx*dx + dy*dy, t, cx, cy };
+  }
+
+  // terrain矩形(中心/角度/長さ)から、中心線の端点A,Bを復元して「直線の坂」として扱う
+  function terrainCenterLine(body){
+    const angle = body.angle || 0;
+    const slope = body.plugin?.slope;
+    const len = slope?.len || 50;
+
+    const hx = Math.cos(angle) * (len/2);
+    const hy = Math.sin(angle) * (len/2);
+
+    const ax = body.position.x - hx;
+    const ay = body.position.y - hy;
+    const bx = body.position.x + hx;
+    const by = body.position.y + hy;
+    return { ax,ay,bx,by, angle, len };
+  }
+
+  // 前フレーム→今フレームの移動線分で、どの坂に「乗っている」か選ぶ（最も近いもの）
+  function findSupportingSlope(prevPos, curPos, coinR){
+    if (!terrains || terrains.length === 0) return null;
+
+    // 探索半径（坂の厚み＋コイン半径＋余裕）
+    const extra = 6;
+
+    let best = null;
+    let bestD2 = Infinity;
+
+    for (const t of terrains){
+      const line = terrainCenterLine(t);
+
+      // “現在位置”が坂中心線に近いか（簡易）
+      const dNow = dist2PointToSegment(curPos.x, curPos.y, line.ax, line.ay, line.bx, line.by);
+      const thickness = (t.plugin?.slope?.thickness || 6);
+      const limit = (coinR + thickness/2 + extra);
+      if (dNow.d2 > limit*limit) continue;
+
+      // “移動線分”上の中点でもチェック（前→今で当たりやすく）
+      const mid = { x:(prevPos.x+curPos.x)/2, y:(prevPos.y+curPos.y)/2 };
+      const dMid = dist2PointToSegment(mid.x, mid.y, line.ax, line.ay, line.bx, line.by);
+      if (dMid.d2 > limit*limit) continue;
+
+      // 最短の坂を採用
+      if (dNow.d2 < bestD2){
+        bestD2 = dNow.d2;
+        best = { body: t, line, nearest: dNow, limit };
+      }
+    }
+
+    return best;
+  }
+
+  function applySlopePhysics(dt){
+    if (!coin || !prevCoinPos) return;
+
+    const g = (engine?.gravity?.y ?? 1) * 1.0; // “重力値”として使う（Matterの重力は概念値）
+    const coinR = parseFloat(coinRInput?.value || "32") || 32;
+
+    const curPos = { x: coin.position.x, y: coin.position.y };
+    const prevPos = prevCoinPos;
+
+    // 接触している坂を探す（線分ベース）
+    const support = findSupportingSlope(prevPos, curPos, coinR);
+    if (!support) return;
+
+    // “接地中”扱い
+    touchingGround = true;
+
+    const theta = support.line.angle;               // 坂の角度
+    const tVec = { x: Math.cos(theta), y: Math.sin(theta) };   // 坂方向単位ベクトル
+    // 法線（坂に垂直）: ( -sin, cos )
+    const nVec = { x: -Math.sin(theta), y: Math.cos(theta) };
+
+    // 坂方向加速度 = g * sin(theta)
+    const a_t = g * Math.sin(theta);
+
+    // 現在速度を坂方向/法線方向へ分解
+    const v = coin.velocity;
+    const vt = v.x*tVec.x + v.y*tVec.y;
+    const vn = v.x*nVec.x + v.y*nVec.y;
+
+    // 1) 坂方向に加速（接触中のみ）
+    let vt2 = vt + a_t * dt * 60; // dtは秒、ざっくりfps補正（Matterの更新単位に合わせる）
+    // 2) 摩擦（減衰）
+    const friction = 0.985; // 1に近いほど滑る、下げるほど止まる
+    vt2 *= friction;
+
+    // 3) 静止摩擦：緩い坂では止まる
+    const stopAccel = 0.08;     // 坂加速が小さければ止める（調整値）
+    const stopSpeed = 0.20;
+    if (Math.abs(a_t) < stopAccel && Math.abs(vt2) < stopSpeed){
+      vt2 = 0;
+    }
+
+    // 4) 法線方向速度は打ち消す（坂から離れない）
+    //    ただし「地形にめりこみ補正」もあるので、強くしすぎない
+    const vn2 = 0;
+
+    // 5) 合成して速度を上書き
+    const vx2 = tVec.x*vt2 + nVec.x*vn2;
+    const vy2 = tVec.y*vt2 + nVec.y*vn2;
+
+    Body.setVelocity(coin, { x: vx2, y: vy2 });
+
+    // 回転は演出（速度に合わせて回す）
+    Body.setAngularVelocity(coin, vt2 * 0.02);
+  }
+
   function installEvents(){
+    // 穴判定は通常collisionでOK
     Events.on(engine, "collisionActive", (ev) => {
+      // ここでtouchingGroundを毎回falseにすると坂物理で上書きしづらいので、
+      // “一旦false”にして afterUpdate側で補正する
       touchingGround = false;
       lastGroundNormal = null;
 
@@ -734,19 +916,23 @@
       }
     });
 
+    Events.on(engine, "beforeUpdate", (ev) => {
+      // 坂物理を“更新前”に少し入れておく（Matterの解決とぶつからないよう弱め）
+      const dt = ev.delta / 1000;
+      applySlopePhysics(dt);
+    });
+
     Events.on(engine, "afterUpdate", () => {
       if (!coin) return;
 
-      // activeSpringの選択（常に最寄り）
+      // activeSpring（近くの黄色）
       const s = nearestSpringByDistance();
-
       const enabled = !!s && canOperateLever(s);
+
       if (!lever.dragging){
-        // ドラッグしてない時だけ対象を更新（ドラッグ中に対象が切り替わると事故るため）
         lever.activeSpring = s;
         lever.enabled = enabled;
       } else {
-        // ドラッグ中に対象が消えたら強制OFF
         if (!lever.activeSpring || !canOperateLever(lever.activeSpring)){
           lever.dragging = false;
           lever.pullRatio = 0;
@@ -757,41 +943,23 @@
 
       setLeverUI(lever.enabled, lever.pullRatio, lever.activeSpring);
 
-      // 状態表示
+      // デバッグ状態（運営のみ見える想定だが、DOM自体が隠れるのでOK）
       const sp = coin.speed.toFixed(2);
-      const av = coin.angularVelocity.toFixed(3);
       const dir = lever.activeSpring ? lever.activeSpring.dir : 0;
-
       setStatus([
         `map: ${mapW}x${mapH}`,
-        `coin: r=${(parseFloat(coinRInput.value)||32)} speed=${sp} angVel=${av}`,
-        `touchingGround: ${touchingGround}`,
-        `springs(yellow): ${springs.length}, holes(red): ${holes.length}`,
-        `lever: enabled=${lever.enabled} dragging=${lever.dragging} power=${Math.round(lever.pullRatio*100)}%`,
-        `activeSpring: ${lever.activeSpring ? (dir>0 ? "LEFT(Y)→RIGHT" : "RIGHT(Y)→LEFT") : "-"}`
+        `coin speed=${sp} v=(${coin.velocity.x.toFixed(2)},${coin.velocity.y.toFixed(2)})`,
+        `touchingGround=${touchingGround}`,
+        `springs=${springs.length} holes=${holes.length} terrains=${terrains.length}`,
+        `lever enabled=${lever.enabled} power=${Math.round(lever.pullRatio*100)}%`,
+        `activeSpring=${lever.activeSpring ? (dir>0 ? "LEFT->RIGHT" : "RIGHT->LEFT") : "-"}`
       ]);
 
-      // 嘘静止摩擦（元の挙動）
-      if (!touchingGround || !lastGroundNormal) return;
-
-      const n = lastGroundNormal;
-      const t = { x: -n.y, y: n.x };
-      const v = coin.velocity;
-      const vt = v.x*t.x + v.y*t.y;
-
-      const slopeMeasure = Math.abs(n.x);
-      if (Math.abs(vt) < 0.15 && Math.abs(coin.angularVelocity) < 0.02 && slopeMeasure < 0.25){
-        Body.setVelocity(coin, { x: 0, y: v.y });
-        Body.setAngularVelocity(coin, 0);
-      } else {
-        const damp = (slopeMeasure < 0.25) ? 0.985 : 0.992;
-        const vt2 = vt * damp;
-        const dv = vt2 - vt;
-        Body.setVelocity(coin, { x: v.x + t.x*dv, y: v.y + t.y*dv });
-      }
+      // prev位置更新（線分判定用）
+      prevCoinPos = { x: coin.position.x, y: coin.position.y };
     });
 
-    // 黄色エリア可視化（どれが対象か分かるように）
+    // 黄色可視化（見やすさ）
     Events.on(render, "afterRender", () => {
       const ctx = render.context;
       if (!coin) return;
@@ -820,10 +988,14 @@
 
   async function rebuild(){
     destroyWorld();
-    setStatus(["loading ren.png..."]);
+    setStatus(["loading ren.png / map.png ..."]);
 
-    renImage = await loadRenPng();
+    // ren.png 解析
+    renImage = await loadImage(REN_URL);
     buildRenImageData(renImage);
+
+    // map.png存在確認（失敗してもゲームは動かす）
+    try { await loadImage(MAP_URL); } catch(e){ console.warn("map.png load failed:", e); }
 
     createEngineAndRenderer();
 
@@ -850,9 +1022,10 @@
     ]);
   }
 
-  reloadBtn.addEventListener("click", () => rebuild());
-  respawnBtn.addEventListener("click", () => respawn());
-  gravityYInput.addEventListener("change", () => { if(engine) engine.gravity.y = parseFloat(gravityYInput.value)||1; });
+  // 運営UIイベント（存在しない時もあるので?）
+  reloadBtn?.addEventListener("click", () => rebuild());
+  respawnBtn?.addEventListener("click", () => respawn());
+  gravityYInput?.addEventListener("change", () => { if(engine) engine.gravity.y = parseFloat(gravityYInput.value)||1; });
 
   rebuild().catch(err => {
     console.error(err);
