@@ -2,144 +2,83 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>昭和ゲーセン 10円ゲーム（マルチ）</title>
+  <title>10円ゲーム（マルチ）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --bg:#120707;
-      --panel:#140808;
-      --panel2:#1a0b0b;
-      --border:#5a1a12;
-      --text:#ffe9d6;
-      --muted:#ffb48a;
-
-      /* 昭和ゲーセン寄り（赤〜橙） */
-      --accent:#ff6a2a;
-      --accent2:#ff2e1a;
-      --neon:#ffb000;
-      --ok:#ffd24a;
-
-      --shadow: rgba(0,0,0,0.55);
+      --bg:#111;
+      --panel:#0b0b0b;
+      --border:#333;
+      --text:#eee;
+      --muted:#bbb;
+      --accent:#ffd24a;
+      --ok:#20ff70;
+      --warn:#ff8a22;
+      --bad:#ff2a2a;
     }
-
-    html,body{
-      height:100%;
-      margin:0;
-      background:
-        radial-gradient(1200px 800px at 30% 10%, rgba(255,90,40,0.12), transparent 60%),
-        radial-gradient(900px 650px at 90% 90%, rgba(255,200,80,0.08), transparent 60%),
-        linear-gradient(180deg, #150707, #0b0505 60%, #080404);
-      color:var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      overflow:hidden;
-    }
-
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui, sans-serif; overflow:hidden;}
     button,input{font-family:inherit}
-    #app{height:100vh; display:flex;}
 
-    /* 左UIを少し広く・見やすく */
+    /* 見やすさ：左パネルを少し狭くし、右を広く */
+    #app{height:100vh; display:grid; grid-template-columns: 320px 1fr;}
+
     #ui{
-      width: 390px;
-      padding: 14px;
+      padding: 12px;
       box-sizing:border-box;
       border-right:1px solid var(--border);
-      background:
-        linear-gradient(180deg, rgba(255,106,42,0.06), transparent 25%),
-        linear-gradient(180deg, var(--panel), var(--panel2));
+      background:var(--panel);
       overflow:auto;
     }
-
-    /* 右側：ゲーム画面は常に中央に収める */
     #world{
-      flex:1;
-      position:relative;
+      background:#000;
       display:flex;
       align-items:center;
       justify-content:center;
       overflow:hidden;
-      background:
-        radial-gradient(900px 700px at 50% 40%, rgba(255,120,50,0.08), transparent 65%),
-        #000;
+      position:relative;
+      min-width: 0;
     }
-
-    /* canvasの見切れ防止 + “見やすい”枠 */
     #world canvas{
       display:block;
-      max-width: 100%;
-      max-height: 100%;
+      max-width:100%;
+      max-height:100%;
       width:auto;
       height:auto;
-      border-radius: 14px;
-      box-shadow: 0 16px 60px var(--shadow);
-      border: 1px solid rgba(255,106,42,0.18);
-      background:#000;
+      background-color:#000;
+      background-repeat:no-repeat;
+      background-position:0 0;
+      background-size:100% 100%;
     }
 
     .card{
-      border:1px solid rgba(255,106,42,0.25);
-      background:
-        linear-gradient(180deg, rgba(255,106,42,0.10), rgba(0,0,0,0.25));
-      border-radius: 14px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
       padding: 12px;
-      margin: 12px 0;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      margin: 10px 0;
     }
-
-    .title{
-      font-size: 14px;
-      margin:0 0 10px;
-      letter-spacing: 0.06em;
-      color: #ffe9d6;
-      text-shadow: 0 0 14px rgba(255,106,42,0.20);
-    }
-
+    .title{font-size:14px; margin:0 0 8px;}
     .label{font-size:11px; color:var(--muted); margin-bottom:6px;}
     .row{margin:10px 0;}
-
     .btn{
-      background: linear-gradient(180deg, rgba(255,106,42,0.25), rgba(0,0,0,0.35));
-      color:var(--text);
-      border:1px solid rgba(255,106,42,0.35);
-      border-radius:10px;
-      padding: 9px 11px;
-      cursor:pointer;
-      font-size: 12px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+      background:#333; color:#eee; border:1px solid #555; border-radius:8px;
+      padding: 8px 10px; cursor:pointer; font-size: 12px;
     }
-    .btn:hover{
-      border-color: rgba(255,176,0,0.55);
-      box-shadow: 0 10px 26px rgba(0,0,0,0.30);
-    }
+    .btn:hover{background:#444;}
+    .btn.ok{background:#163; border-color:#2a6;}
+    .btn.bad{background:#511; border-color:#a33;}
     .btn:disabled{opacity:0.45; cursor:not-allowed;}
-    .btn.ok{
-      border-color: rgba(255,176,0,0.55);
-      background: linear-gradient(180deg, rgba(255,176,0,0.22), rgba(0,0,0,0.38));
-    }
-    .btn.bad{
-      border-color: rgba(255,46,26,0.65);
-      background: linear-gradient(180deg, rgba(255,46,26,0.20), rgba(0,0,0,0.42));
-    }
-
     input[type="text"], input[type="password"], input[type="number"]{
       width:100%;
       box-sizing:border-box;
-      background: rgba(0,0,0,0.45);
-      color: var(--text);
-      border:1px solid rgba(255,106,42,0.35);
-      border-radius: 10px;
-      padding: 9px 11px;
-      outline:none;
-    }
-    input:focus{
-      border-color: rgba(255,176,0,0.75);
-      box-shadow: 0 0 0 3px rgba(255,176,0,0.12);
+      background:#222; color:#eee; border:1px solid #555; border-radius:8px; padding:8px 10px;
     }
 
     #status{
       white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
-      color:#ffd7b0;
+      color:#cfc;
     }
 
     /* レバー */
@@ -148,19 +87,18 @@
       font-size: 11px;
       padding: 2px 8px;
       border-radius:999px;
-      border:1px solid rgba(255,176,0,0.35);
-      background: rgba(0,0,0,0.35);
-      color: rgba(255,233,214,0.9);
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.85);
       white-space:nowrap;
     }
     #leverBadge.off{opacity:0.6;}
-
     #pullArea{
       margin-top:10px;
-      height: 46px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,106,42,0.35);
-      background: rgba(0,0,0,0.45);
+      height:44px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.35);
       position:relative;
       overflow:hidden;
       user-select:none;
@@ -168,111 +106,70 @@
       cursor:grab;
     }
     #pullArea:active{cursor:grabbing;}
-    #pullFill{
-      position:absolute; left:0; top:0; bottom:0; width:0%;
-      background: linear-gradient(90deg, #ffd24a, #ffb000, #ff6a2a, #ff2e1a);
-      opacity:0.95;
-    }
-    #pullKnob{
-      position:absolute; top:50%; transform:translate(-50%,-50%);
-      width: 18px; height:18px; border-radius:999px;
-      background: rgba(255,233,214,0.94);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.55);
-      left:0%;
-    }
-    #leverNums{margin-top:8px; display:flex; justify-content:space-between; gap:8px; font-size:11px; color: rgba(255,233,214,0.80);}
-    .chip{padding:2px 8px; border-radius:999px; border:1px solid rgba(255,106,42,0.25); background: rgba(0,0,0,0.25); white-space:nowrap;}
+    #pullFill{position:absolute; left:0; top:0; bottom:0; width:0%; background: linear-gradient(90deg, var(--ok), #ffee55, var(--warn), var(--bad)); opacity:0.9;}
+    #pullKnob{position:absolute; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:999px; background: rgba(255,255,255,0.92); box-shadow: 0 2px 10px rgba(0,0,0,0.45); left:0%;}
+    #leverNums{margin-top:8px; display:flex; justify-content:space-between; gap:8px; font-size:11px; color: rgba(255,255,255,0.75);}
+    .chip{padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); white-space:nowrap;}
 
-    /* クリア演出 */
+    /* クリア演出（自分だけ） */
     #clearOverlay{
       position:absolute; inset:0;
       display:none;
       align-items:center;
       justify-content:center;
-      background: rgba(0,0,0,0.70);
+      background: rgba(0,0,0,0.65);
       z-index: 5;
     }
     #clearOverlay img{
-      max-width: 82%;
-      max-height: 82%;
+      max-width: 80%;
+      max-height: 80%;
       border-radius: 18px;
-      border: 1px solid rgba(255,176,0,0.25);
-      box-shadow: 0 14px 70px rgba(0,0,0,0.80);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.7);
       background:#000;
     }
 
-    /* 運営モード */
     body:not(.admin) .adminOnly{display:none;}
     body.admin .adminOnly{display:block;}
-
-    /* “始まりUI”を見やすく（選択/名前） */
-    .bigBtn{
-      width:100%;
-      padding: 12px 12px;
-      font-size: 13px;
-      letter-spacing: 0.08em;
-    }
-    .smallNote{
-      font-size: 11px;
-      color: rgba(255,180,138,0.85);
-      line-height: 1.5;
-    }
-
-    /* map.pngが見えない時の警告表示 */
-    #bgWarn{
-      display:none;
-      margin-top:8px;
-      font-size:11px;
-      color: rgba(255,176,0,0.95);
-    }
-    #bgWarn.show{display:block;}
   </style>
 </head>
 <body>
 <div id="app">
   <div id="ui">
-    <!-- ゲーム選択 -->
+    <!-- 画面：ゲーム選択 -->
     <div id="screenSelect" class="card">
-      <h2 class="title">昭和ゲーセン</h2>
-      <div class="smallNote">
-        まずゲームを選んでください。<br>
-        ※10円ゲームはリアルタイム共有（観戦あり）
+      <h2 class="title">ゲーム選択</h2>
+      <div class="row">
+        <button id="btnSelectCoin" class="btn ok">10円ゲーム</button>
       </div>
       <div class="row">
-        <button id="btnSelectJanken" class="btn bigBtn">じゃんけんゲーム</button>
+        <button id="btnSelectJanken" class="btn">じゃんけん（準備中）</button>
       </div>
-      <div class="row">
-        <button id="btnSelectCoin" class="btn ok bigBtn">10円ゲーム</button>
-      </div>
-      <div id="selectMsg" class="smallNote"></div>
+      <div id="selectMsg" style="font-size:11px;color:#aaa;"></div>
     </div>
 
-    <!-- 名前入力 -->
+    <!-- 画面：名前入力 -->
     <div id="screenName" class="card" style="display:none;">
       <h2 class="title">名前入力</h2>
-      <div class="smallNote">空なら「匿名」になります。</div>
-      <div class="row">
-        <input id="nameInput" type="text" placeholder="名前">
-      </div>
+      <div class="label">空なら「匿名」</div>
+      <input id="nameInput" type="text" placeholder="名前">
       <div class="row" style="display:flex; gap:8px;">
         <button id="btnNameBack" class="btn">戻る</button>
         <button id="btnNameOk" class="btn ok">決定</button>
       </div>
     </div>
 
-    <!-- 10円ゲーム -->
+    <!-- 画面：10円ゲーム -->
     <div id="screenCoin" style="display:none;">
       <div class="card">
         <h2 class="title">10円ゲーム（マルチ）</h2>
-
         <div class="row">
           <div class="label">あなた</div>
           <div id="meLine" style="font-size:12px;"></div>
         </div>
-
         <div class="row">
           <div class="label">現在プレイ中</div>
-          <div id="currentPlayerLine" style="font-size:12px;color:var(--neon);">-</div>
+          <div id="currentPlayerLine" style="font-size:12px;color:var(--accent);">-</div>
         </div>
 
         <div class="row" style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -283,31 +180,25 @@
         </div>
 
         <div class="row">
-          <button id="btnWait" class="btn" style="display:none;">待機</button>
-          <div id="waitLine" class="smallNote" style="margin-top:6px;"></div>
+          <button id="btnWait" class="btn">待機</button>
+          <div id="waitLine" style="margin-top:6px;font-size:11px;color:#aaa;"></div>
         </div>
-
-        <div id="bgWarn"></div>
       </div>
 
-      <div class="card" id="leverBox">
+      <div class="card">
         <div id="leverHead">
           <div style="color:var(--accent); font-size:12px;">バー（引いて→離す）</div>
           <div id="leverBadge" class="off">OFF</div>
         </div>
-
         <div id="pullArea">
           <div id="pullFill"></div>
           <div id="pullKnob"></div>
         </div>
-
         <div id="leverNums">
           <div class="chip" id="powChip">0%</div>
           <div class="chip" id="dirChip">dir:-</div>
         </div>
-
-        <div class="smallNote" style="margin-top:8px;">
-          対象: コインの近くの黄色（最寄り）<br>
+        <div style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.75); line-height:1.35;">
           操作できるのはプレイヤーのみ
         </div>
       </div>
@@ -319,26 +210,14 @@
           <button id="adminEnter" class="btn">決定</button>
           <button id="adminExit" class="btn" style="display:none;">退出</button>
         </div>
-        <div id="adminMsg" class="smallNote" style="margin-top:6px;"></div>
+        <div id="adminMsg" style="margin-top:6px;font-size:11px;color:#aaa;"></div>
 
         <div class="adminOnly" style="margin-top:10px;">
-          <div class="label">（運営のみ）調整</div>
-          <div class="row"><div class="label">重力</div><input id="gravityY" type="number" value="1" step="0.1" min="0" max="5"></div>
-          <div class="row"><div class="label">maxImpulse（内部で1.5倍）</div><input id="maxImpulse" type="number" value="18" step="1" min="1" max="200"></div>
-          <div class="row"><div class="label">maxPull</div><input id="maxPull" type="number" value="150" step="10" min="40" max="500"></div>
-          <div class="row"><div class="label">nearDist</div><input id="nearDist" type="number" value="180" step="10" min="20" max="800"></div>
-          <div class="row"><div class="label">cooldown</div><input id="cooldown" type="number" value="0.30" step="0.05" min="0" max="2"></div>
+          <div class="label">（運営のみ）背景デバッグ</div>
+          <div id="bgDebug" style="font-size:11px;color:#9bd;">-</div>
 
-          <div class="row"><div class="label">坂補助 probe</div><input id="slopeProbe" type="number" value="34" step="2" min="6" max="220"></div>
-          <div class="row"><div class="label">坂補助 ui倍率</div><input id="slopeAssist" type="number" value="2.5" step="0.1" min="0" max="30"></div>
-
-          <div class="row"><div class="label">地形スムージング回数</div><input id="smoothIters" type="number" value="2" step="1" min="0" max="6"></div>
-          <div class="row"><div class="label">地形スムージング閾値</div><input id="smoothThresh" type="number" value="0.58" step="0.01" min="0.5" max="0.9"></div>
-          <div class="row"><div class="label">線分step</div><input id="segStep" type="number" value="6" step="1" min="2" max="20"></div>
-
-          <div class="row">
-            <button id="btnReload" class="btn">ren.pngから再生成</button>
-          </div>
+          <div class="label" style="margin-top:10px;">（運営のみ）再生成</div>
+          <button id="btnReload" class="btn">ren.pngから再生成</button>
         </div>
       </div>
 
@@ -358,7 +237,7 @@
 
 <script type="module">
   // ==========================
-  // Firebase 初期化（あなたの設定）
+  // Firebase 初期化（あなたのスニペット準拠）
   // ==========================
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
@@ -394,7 +273,6 @@
   const REN_URL = "ren.png";
   const MAP_URL = "map.png";
   const COIN_IMG_URL = "10.png";
-
   const SND_FAIL = "s.mp3";
   const SND_SHOT = "u.mp3";
   const SND_HIT  = "b.mp3";
@@ -402,18 +280,17 @@
   const SND_CLEAR= "kr.mp3";
 
   // ==========================
-  // RTDB
+  // RTDB パス
   // ==========================
   const ROOM = "rooms/default";
   const rRoom = (p)=>ref(db, `${ROOM}/${p}`);
-
   const rLock  = rRoom("lock");
   const rWait  = rRoom("waiters");
   const rEvent = rRoom("event");
   const rSnap  = rRoom("snapshot");
 
   // ==========================
-  // UI util
+  // UI
   // ==========================
   const $ = (id)=>document.getElementById(id);
 
@@ -421,8 +298,8 @@
   const screenName = $("screenName");
   const screenCoin = $("screenCoin");
 
-  const btnSelectJanken = $("btnSelectJanken");
   const btnSelectCoin = $("btnSelectCoin");
+  const btnSelectJanken = $("btnSelectJanken");
   const selectMsg = $("selectMsg");
 
   const nameInput = $("nameInput");
@@ -446,33 +323,34 @@
   const dirChip = $("dirChip");
 
   const clearOverlay = $("clearOverlay");
-  const bgWarn = $("bgWarn");
 
   const adminPass = $("adminPass");
   const adminEnter = $("adminEnter");
   const adminExit = $("adminExit");
   const adminMsg = $("adminMsg");
   const btnReload = $("btnReload");
+  const bgDebug = $("bgDebug");
   const statusEl = $("status");
-
-  const getNum = (id, fallback)=>{
-    const el = $(id);
-    if (!el) return fallback;
-    const v = parseFloat(el.value);
-    return Number.isFinite(v) ? v : fallback;
-  };
 
   // ==========================
   // 状態
   // ==========================
   let myName = "";
   let myId = crypto.randomUUID();
-  let isAdmin = false;
-  let role = "spectator"; // spectator | player
-  let isPlaying = false;
 
-  let lastMyActionAt = Date.now();
-  const AFK_LIMIT_MS = 60_000;
+  let isAdmin=false;
+  function setAdminMode(on){
+    isAdmin=!!on;
+    document.body.classList.toggle("admin", isAdmin);
+    adminExit.style.display = isAdmin ? "inline-block" : "none";
+  }
+  setAdminMode(false);
+
+  function showScreen(which){
+    screenSelect.style.display = (which==="select") ? "block" : "none";
+    screenName.style.display = (which==="name") ? "block" : "none";
+    screenCoin.style.display = (which==="coin") ? "block" : "none";
+  }
 
   // ==========================
   // 音
@@ -484,104 +362,43 @@
     spawn:new Audio(SND_SPAWN),
     clear:new Audio(SND_CLEAR),
   };
-  for (const a of Object.values(sounds)){
-    a.preload = "auto";
-    a.volume = 0.9;
-  }
-  let audioUnlocked = false;
+  for (const a of Object.values(sounds)){ a.preload="auto"; a.volume=0.9; }
+
+  let audioUnlocked=false;
   async function unlockAudioOnce(){
-    if (audioUnlocked) return;
-    audioUnlocked = true;
+    if(audioUnlocked) return;
+    audioUnlocked=true;
     try{
-      const a = sounds.spawn;
-      const prev = a.volume;
-      a.volume = 0;
-      a.currentTime = 0;
+      const a=sounds.spawn;
+      const v=a.volume; a.volume=0;
+      a.currentTime=0;
       await a.play();
-      a.pause();
-      a.currentTime = 0;
-      a.volume = prev;
-    }catch(e){
-      console.warn("audio unlock failed:", e);
-    }
+      a.pause(); a.currentTime=0;
+      a.volume=v;
+    }catch(e){ console.warn("audio unlock failed:", e); }
   }
   function playSound(key){
-    const a = sounds[key];
-    if (!a) return;
-    try{
-      a.pause();
-      a.currentTime = 0;
-      a.play().catch(()=>{});
-    }catch(e){}
+    const a=sounds[key]; if(!a) return;
+    try{ a.pause(); a.currentTime=0; a.play().catch(()=>{}); }catch{}
   }
 
   // ==========================
-  // 10円画像（円形マスク描画）
+  // 10円画像
   // ==========================
-  const coinSprite = {
-    img: null,
-    ready: false,
+  const coinSprite = { img:null, ready:false,
     async load(){
-      if (this.ready) return;
+      if(this.ready) return;
       this.img = new Image();
-      await new Promise((res, rej)=>{
-        this.img.onload = res;
-        this.img.onerror = rej;
+      await new Promise((res,rej)=>{
+        this.img.onload=res; this.img.onerror=rej;
         this.img.src = COIN_IMG_URL + "?t=" + Date.now();
       });
-      this.ready = true;
+      this.ready=true;
     }
   };
 
   // ==========================
-  // map.pngが見えないバグ対策（重要）
-  // ==========================
-  // - Render.options.background だけに頼らない
-  // - canvas.style.backgroundImage を必ず設定
-  // - map.png を事前に loadImage して、読めなければ ren.png にフォールバック
-  // - CORS/パス間違いでも落ちないように警告をUIに出す
-  async function resolveBackgroundUrl(){
-    try{
-      await loadImage(MAP_URL);
-      bgWarn.classList.remove("show");
-      bgWarn.textContent = "";
-      return MAP_URL;
-    }catch(e){
-      // フォールバック
-      bgWarn.classList.add("show");
-      bgWarn.textContent = "⚠ map.png が読み込めません（ren.png に切替）: パス/ファイル名/配置を確認してください";
-      return REN_URL;
-    }
-  }
-
-  async function loadImage(url){
-    const img = new Image();
-    await new Promise((res,rej)=>{
-      img.onload=res;
-      img.onerror=rej;
-      img.src = url + "?t=" + Date.now();
-    });
-    return img;
-  }
-
-  // ==========================
-  // ゲーム画面遷移
-  // ==========================
-  function showScreen(name){
-    screenSelect.style.display = (name==="select") ? "block" : "none";
-    screenName.style.display = (name==="name") ? "block" : "none";
-    screenCoin.style.display = (name==="coin") ? "block" : "none";
-  }
-
-  function setAdminMode(on){
-    isAdmin = !!on;
-    document.body.classList.toggle("admin", isAdmin);
-    adminExit.style.display = isAdmin ? "inline-block" : "none";
-  }
-  setAdminMode(false);
-
-  // ==========================
-  // Matter.js
+  // Matter
   // ==========================
   const elWorld = $("world");
   const Matter = window.Matter;
@@ -594,40 +411,72 @@
   let blackMask=null;
   let coin=null;
   let spawnPoint={x:100,y:100};
+
   let springs=[], holes=[], goals=[];
-  let touchingGround=false, lastGroundNormal=null;
+  let touchingGround=false;
+  let lastGroundNormal=null;
 
-  let remoteSnapshot=null; // spectator描画用
+  // 役割
+  let role="spectator";
+  let isPlaying=false;
 
-  // 物理強化（途中で止まらないように：前回より強い）
-  const IMPULSE_MULT = 1.5;
-  const UPWARD_BIAS_FIXED = 0;
-  const SLOPE_ACCEL_MULT = 2.0;
-  const SLOPE_EXTRA_MULT = 3.6;
-  const STUCK_BOOST_MULT = 4.8;
-  const STUCK_SPEED_TH   = 0.30;
-  const MIN_SIN_TO_APPLY = 0.012;
+  // 操作監視
+  let lastMyActionAt=Date.now();
+  const AFK_LIMIT_MS=60_000;
 
-  // レバー状態
-  let lever = {
-    enabled:false,
-    activeSpring:null,
-    dragging:false,
-    pointerId:null,
-    startX:0,
-    currentX:0,
-    pullRatio:0
-  };
+  // 観戦描画用
+  let remoteSnapshot=null;
 
-  // クリア演出
-  let clearTimer=null;
-  function showClearOverlay10s(){
-    clearOverlay.style.display="flex";
-    if(clearTimer) clearTimeout(clearTimer);
-    clearTimer=setTimeout(()=>{ clearOverlay.style.display="none"; }, 10_000);
+  // レバー
+  let lever={enabled:false,activeSpring:null,dragging:false,pointerId:null,startX:0,currentX:0,pullRatio:0};
+
+  // 強化値（動作優先で固定）
+  const IMPULSE_MULT=1.5;
+  const UPWARD_BIAS_FIXED=0;
+  const SLOPE_ACCEL_MULT=2.0;
+  const SLOPE_EXTRA_MULT=3.8;     // ←さらに上げた
+  const STUCK_BOOST_MULT=5.0;     // ←さらに上げた
+  const STUCK_SPEED_TH=0.30;
+  const MIN_SIN_TO_APPLY=0.012;
+
+  // ==========================
+  // 画像ロード（mapバグ対策の要）
+  // ==========================
+  async function loadImage(url){
+    const img=new Image();
+    // キャッシュ回避を必ず付ける
+    const u = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    await new Promise((res,rej)=>{
+      img.onload=res;
+      img.onerror=()=>rej(new Error("Failed to load: "+url));
+      img.src=u;
+    });
+    return img;
   }
 
-  // ===== 画像解析 =====
+  async function chooseBackgroundURL(){
+    // map.png を「読めるかどうか」を必ず判定
+    try{
+      await loadImage(MAP_URL);
+      return MAP_URL;
+    }catch(e){
+      console.warn(e);
+      return REN_URL;
+    }
+  }
+
+  async function loadRen(){
+    const img = await loadImage(REN_URL);
+    mapW = img.naturalWidth || img.width;
+    mapH = img.naturalHeight || img.height;
+
+    renCanvas=document.createElement("canvas");
+    renCanvas.width=mapW; renCanvas.height=mapH;
+    renCtx=renCanvas.getContext("2d",{willReadFrequently:true});
+    renCtx.drawImage(img,0,0);
+    renData=renCtx.getImageData(0,0,mapW,mapH);
+  }
+
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
     if (r < 40 && g < 40 && b < 40) return "black";
@@ -636,138 +485,6 @@
     if (r > 180 && g > 180 && b < 120) return "yellow";
     if (b > 180 && r < 100 && g < 140) return "blue";
     return "empty";
-  }
-
-  function extractComponents(mask, w, h){
-    const visited = new Uint8Array(w*h);
-    const comps = [];
-    const qx = new Int32Array(w*h);
-    const qy = new Int32Array(w*h);
-    const idx = (x,y)=>y*w+x;
-    const push = (x,y,t)=>{ qx[t]=x; qy[t]=y; return t+1; };
-
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        const i=idx(x,y);
-        if(!mask[i] || visited[i]) continue;
-
-        let head=0, tail=0;
-        tail=push(x,y,tail);
-        visited[i]=1;
-
-        let sumX=0,sumY=0,area=0;
-        let minX=x,minY=y,maxX=x,maxY=y;
-
-        while(head<tail){
-          const cx=qx[head], cy=qy[head]; head++;
-          area++; sumX+=cx; sumY+=cy;
-          if(cx<minX)minX=cx; if(cy<minY)minY=cy;
-          if(cx>maxX)maxX=cx; if(cy>maxY)maxY=cy;
-
-          const n1 = (cx>0)   ? idx(cx-1,cy) : -1;
-          const n2 = (cx<w-1) ? idx(cx+1,cy) : -1;
-          const n3 = (cy>0)   ? idx(cx,cy-1) : -1;
-          const n4 = (cy<h-1) ? idx(cx,cy+1) : -1;
-
-          if (n1>=0 && mask[n1] && !visited[n1]){ visited[n1]=1; tail=push(cx-1,cy,tail); }
-          if (n2>=0 && mask[n2] && !visited[n2]){ visited[n2]=1; tail=push(cx+1,cy,tail); }
-          if (n3>=0 && mask[n3] && !visited[n3]){ visited[n3]=1; tail=push(cx,cy-1,tail); }
-          if (n4>=0 && mask[n4] && !visited[n4]){ visited[n4]=1; tail=push(cx,cy+1,tail); }
-        }
-
-        comps.push({ area, centroid:{x:sumX/area,y:sumY/area}, aabb:{minX,minY,maxX,maxY} });
-      }
-    }
-    comps.sort((a,b)=>b.area-a.area);
-    return comps;
-  }
-
-  function smoothBinaryMask(mask,w,h,iters=2,threshold=0.58){
-    let src=mask;
-    let dst=new Uint8Array(w*h);
-    const idx=(x,y)=>y*w+x;
-    for(let iter=0; iter<iters; iter++){
-      dst.fill(0);
-      for(let y=1;y<h-1;y++){
-        for(let x=1;x<w-1;x++){
-          let c=0;
-          c+=src[idx(x-1,y-1)]; c+=src[idx(x,y-1)]; c+=src[idx(x+1,y-1)];
-          c+=src[idx(x-1,y)];   c+=src[idx(x,y)];   c+=src[idx(x+1,y)];
-          c+=src[idx(x-1,y+1)]; c+=src[idx(x,y+1)]; c+=src[idx(x+1,y+1)];
-          dst[idx(x,y)] = (c/9 >= threshold) ? 1 : 0;
-        }
-      }
-      for (let x=0;x<w;x++){ dst[idx(x,0)] = src[idx(x,0)]; dst[idx(x,h-1)] = src[idx(x,h-1)]; }
-      for (let y=0;y<h;y++){ dst[idx(0,y)] = src[idx(0,y)]; dst[idx(w-1,y)] = src[idx(w-1,y)]; }
-      const tmp=src; src=dst; dst=tmp;
-    }
-    return src;
-  }
-
-  function extractBoundaryPoints(mask,w,h){
-    const pts=[];
-    const idx=(x,y)=>y*w+x;
-    for(let y=1;y<h-1;y++){
-      for(let x=1;x<w-1;x++){
-        const i=idx(x,y);
-        if(!mask[i]) continue;
-        if(!mask[idx(x-1,y)] || !mask[idx(x+1,y)] || !mask[idx(x,y-1)] || !mask[idx(x,y+1)]) pts.push({x,y});
-      }
-    }
-    return pts;
-  }
-
-  function pointsToSegmentsApproxSmooth(points, sampleStep=6, grid=2){
-    const segs=[];
-    const snap=(v)=>Math.round(v/grid)*grid;
-    const pts=[];
-    for(let i=0;i<points.length;i+=sampleStep){
-      const p=points[i];
-      pts.push({x:snap(p.x),y:snap(p.y)});
-    }
-    const maxD2=(sampleStep*sampleStep*20);
-    const minD2=4;
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      let bestJ=-1,bestD2=Infinity;
-      for(let j=i+1;j<Math.min(pts.length,i+220);j++){
-        const q=pts[j];
-        const dx=q.x-p.x,dy=q.y-p.y;
-        const d2=dx*dx+dy*dy;
-        if(d2<minD2) continue;
-        if(d2<bestD2 && d2<maxD2){ bestD2=d2; bestJ=j; }
-      }
-      if(bestJ>=0){
-        const q=pts[bestJ];
-        segs.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y});
-      }
-    }
-    return segs;
-  }
-
-  function segmentToBody(seg, thickness=6, opt={}){
-    const mx=(seg.x1+seg.x2)/2, my=(seg.y1+seg.y2)/2;
-    const dx=seg.x2-seg.x1, dy=seg.y2-seg.y1;
-    const len=Math.hypot(dx,dy);
-    const ang=Math.atan2(dy,dx);
-    return Bodies.rectangle(mx,my,len,thickness,{
-      isStatic:true,
-      friction:0.55,
-      restitution:0,
-      angle:ang,
-      ...opt
-    });
-  }
-
-  async function loadRen(){
-    const img = await loadImage(REN_URL);
-    mapW = img.naturalWidth || img.width;
-    mapH = img.naturalHeight || img.height;
-    renCanvas = document.createElement("canvas");
-    renCanvas.width=mapW; renCanvas.height=mapH;
-    renCtx = renCanvas.getContext("2d",{willReadFrequently:true});
-    renCtx.drawImage(img,0,0);
-    renData = renCtx.getImageData(0,0,mapW,mapH);
   }
 
   function buildMasks(){
@@ -795,46 +512,140 @@
     return {black,red,green,yellow,blue};
   }
 
-  // ===== game create/destroy =====
-  function destroyGame(){
-    if(render){
-      Render.stop(render);
-      render.canvas.remove();
-      render.textures = {};
-      render = null;
+  function extractComponents(mask,w,h){
+    const visited=new Uint8Array(w*h);
+    const comps=[];
+    const qx=new Int32Array(w*h);
+    const qy=new Int32Array(w*h);
+    const idx=(x,y)=>y*w+x;
+    const push=(x,y,t)=>{qx[t]=x; qy[t]=y; return t+1;};
+
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i=idx(x,y);
+        if(!mask[i] || visited[i]) continue;
+
+        let head=0,tail=0;
+        tail=push(x,y,tail); visited[i]=1;
+
+        let sumX=0,sumY=0,area=0;
+        let minX=x,minY=y,maxX=x,maxY=y;
+
+        while(head<tail){
+          const cx=qx[head],cy=qy[head]; head++;
+          area++; sumX+=cx; sumY+=cy;
+          if(cx<minX)minX=cx; if(cy<minY)minY=cy;
+          if(cx>maxX)maxX=cx; if(cy>maxY)maxY=cy;
+
+          const n1=(cx>0)?idx(cx-1,cy):-1;
+          const n2=(cx<w-1)?idx(cx+1,cy):-1;
+          const n3=(cy>0)?idx(cx,cy-1):-1;
+          const n4=(cy<h-1)?idx(cx,cy+1):-1;
+
+          if(n1>=0 && mask[n1] && !visited[n1]){visited[n1]=1; tail=push(cx-1,cy,tail);}
+          if(n2>=0 && mask[n2] && !visited[n2]){visited[n2]=1; tail=push(cx+1,cy,tail);}
+          if(n3>=0 && mask[n3] && !visited[n3]){visited[n3]=1; tail=push(cx,cy-1,tail);}
+          if(n4>=0 && mask[n4] && !visited[n4]){visited[n4]=1; tail=push(cx,cy+1,tail);}
+        }
+        comps.push({area, centroid:{x:sumX/area, y:sumY/area}, aabb:{minX,minY,maxX,maxY}});
+      }
     }
+    comps.sort((a,b)=>b.area-a.area);
+    return comps;
+  }
+
+  function smoothBinaryMask(mask,w,h,iters=2,threshold=0.58){
+    let src=mask;
+    let dst=new Uint8Array(w*h);
+    const idx=(x,y)=>y*w+x;
+    for(let iter=0; iter<iters; iter++){
+      dst.fill(0);
+      for(let y=1;y<h-1;y++){
+        for(let x=1;x<w-1;x++){
+          let c=0;
+          c+=src[idx(x-1,y-1)]; c+=src[idx(x,y-1)]; c+=src[idx(x+1,y-1)];
+          c+=src[idx(x-1,y)];   c+=src[idx(x,y)];   c+=src[idx(x+1,y)];
+          c+=src[idx(x-1,y+1)]; c+=src[idx(x,y+1)]; c+=src[idx(x+1,y+1)];
+          dst[idx(x,y)] = (c/9>=threshold)?1:0;
+        }
+      }
+      const tmp=src; src=dst; dst=tmp;
+    }
+    return src;
+  }
+
+  function extractBoundaryPoints(mask,w,h){
+    const pts=[];
+    const idx=(x,y)=>y*w+x;
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const i=idx(x,y);
+        if(!mask[i]) continue;
+        if(!mask[idx(x-1,y)]||!mask[idx(x+1,y)]||!mask[idx(x,y-1)]||!mask[idx(x,y+1)]) pts.push({x,y});
+      }
+    }
+    return pts;
+  }
+
+  function pointsToSegmentsApproxSmooth(points,sampleStep=6,grid=2){
+    const segs=[];
+    const snap=(v)=>Math.round(v/grid)*grid;
+    const pts=[];
+    for(let i=0;i<points.length;i+=sampleStep){
+      const p=points[i];
+      pts.push({x:snap(p.x),y:snap(p.y)});
+    }
+    const maxD2=(sampleStep*sampleStep*20);
+    const minD2=4;
+
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      let bestJ=-1, bestD2=Infinity;
+      for(let j=i+1;j<Math.min(pts.length,i+220);j++){
+        const q=pts[j];
+        const dx=q.x-p.x, dy=q.y-p.y;
+        const d2=dx*dx+dy*dy;
+        if(d2<minD2) continue;
+        if(d2<bestD2 && d2<maxD2){bestD2=d2; bestJ=j;}
+      }
+      if(bestJ>=0){
+        const q=pts[bestJ];
+        segs.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y});
+      }
+    }
+    return segs;
+  }
+
+  function segmentToBody(seg){
+    const x1=seg.x1,y1=seg.y1,x2=seg.x2,y2=seg.y2;
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const dx=x2-x1, dy=y2-y1;
+    const len=Math.hypot(dx,dy);
+    const ang=Math.atan2(dy,dx);
+    return Bodies.rectangle(mx,my,len,6,{isStatic:true, friction:0.55, restitution:0, angle:ang, render:{visible:false}});
+  }
+
+  function destroyGame(){
+    if(render){ Render.stop(render); render.canvas.remove(); render.textures={}; render=null; }
     if(runner){ Runner.stop(runner); runner=null; }
     if(engine){ World.clear(engine.world,false); Engine.clear(engine); engine=null; }
-    blackMask=null;
-    coin=null;
-    springs=[]; holes=[]; goals=[];
+    coin=null; springs=[]; holes=[]; goals=[];
     touchingGround=false; lastGroundNormal=null;
     remoteSnapshot=null;
   }
 
   function createEngine(){
-    engine = Engine.create();
-    engine.gravity.y = getNum("gravityY", 1);
+    engine=Engine.create();
+    engine.gravity.y = 1;
   }
-
   function createRenderer(bgUrl){
-    render = Render.create({
+    render=Render.create({
       element: elWorld,
       engine,
-      options:{
-        width: mapW,
-        height: mapH,
-        wireframes:false,
-        background:"#000",
-        hasBounds:false,
-        pixelRatio: window.devicePixelRatio || 1
-      }
+      options:{width:mapW,height:mapH,wireframes:false,background:"#000",hasBounds:false,pixelRatio:window.devicePixelRatio||1}
     });
 
-    // ===== map表示の根本対策 =====
-    // Renderの背景だけでなく、canvas.styleにも設定
-    // さらに、ロード結果(bgUrl)をそのまま使う（mapが無理ならren）
-    render.options.background = `url(${bgUrl})`;
+    // ★ mapバグ対策：styleに確実に設定（options.backgroundは使わない）
     render.canvas.style.backgroundImage = `url(${bgUrl})`;
     render.canvas.style.backgroundSize = "100% 100%";
     render.canvas.style.backgroundRepeat = "no-repeat";
@@ -845,64 +656,25 @@
     if(!render) return;
     const rect = elWorld.getBoundingClientRect();
     const scale = Math.min(rect.width / mapW, rect.height / mapH);
-    render.canvas.style.width = (mapW * scale) + "px";
-    render.canvas.style.height = (mapH * scale) + "px";
+    render.canvas.style.width = (mapW*scale)+"px";
+    render.canvas.style.height = (mapH*scale)+"px";
   }
 
-  // ===== 10円生成/再生成 =====
-  function addCoinNew(){
-    if(!engine) return;
-    if(coin){
-      World.remove(engine.world, coin);
-      coin = null;
+  function addTerrainFromBlack(mask){
+    const smooth = smoothBinaryMask(mask, mapW, mapH, 2, 0.58);
+    blackMask = smooth;
+    const boundary = extractBoundaryPoints(smooth,mapW,mapH);
+    const segs = pointsToSegmentsApproxSmooth(boundary, 6, 2);
+    const bodies=[];
+    for(const seg of segs){
+      const b=segmentToBody(seg);
+      b.label="terrain";
+      bodies.push(b);
     }
-    const r = 32;
-    coin = Bodies.circle(spawnPoint.x, spawnPoint.y, r, {
-      restitution: 0,
-      friction: 0.012,
-      frictionStatic: 0.12,
-      frictionAir: 0.006,
-      density: 0.005,
-      render: { visible:false }
-    });
-    World.add(engine.world, coin);
-    playSound("spawn");
+    World.add(engine.world,bodies);
   }
 
-  function respawnCoin(){
-    if(!coin) return;
-    Body.setPosition(coin, {x:spawnPoint.x, y:spawnPoint.y});
-    Body.setVelocity(coin, {x:0,y:0});
-    Body.setAngularVelocity(coin, 0);
-    playSound("spawn");
-  }
-
-  // ===== sensors =====
-  function addHoles(redComps){
-    holes=[];
-    for(const c of redComps){
-      let r = Math.sqrt(c.area/Math.PI);
-      r = Math.max(12, Math.min(90, r));
-      const b = Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
-      b.label="hole";
-      holes.push(b);
-    }
-    World.add(engine.world, holes);
-  }
-
-  function addGoals(blueComps){
-    goals=[];
-    for(const c of blueComps){
-      let r = Math.sqrt(c.area/Math.PI);
-      r = Math.max(14, Math.min(110, r));
-      const b = Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
-      b.label="goal";
-      goals.push(b);
-    }
-    World.add(engine.world, goals);
-  }
-
-  function addSprings(yellowComps){
+  function addSpringsFromYellow(yellowComps){
     springs=[];
     const centerX=mapW/2;
     const picked=yellowComps.slice(0,6);
@@ -910,984 +682,38 @@
       const dir = (c.centroid.x < centerX) ? +1 : -1;
       const pad=8;
       const aabb={minX:c.aabb.minX-pad, minY:c.aabb.minY-pad, maxX:c.aabb.maxX+pad, maxY:c.aabb.maxY+pad};
-      const sensor = Bodies.rectangle((aabb.minX+aabb.maxX)/2,(aabb.minY+aabb.maxY)/2,
-        Math.max(10,aabb.maxX-aabb.minX), Math.max(10,aabb.maxY-aabb.minY),
-        {isStatic:true,isSensor:true,render:{visible:false}}
-      );
+      const sensor=Bodies.rectangle((aabb.minX+aabb.maxX)/2,(aabb.minY+aabb.maxY)/2,Math.max(10,aabb.maxX-aabb.minX),Math.max(10,aabb.maxY-aabb.minY),{isStatic:true,isSensor:true,render:{visible:false}});
       sensor.label="springSensor";
       springs.push({sensor, center:{x:c.centroid.x,y:c.centroid.y}, dir, cooldownUntil:0, aabb});
     }
     World.add(engine.world, springs.map(s=>s.sensor));
   }
 
-  // ===== terrain =====
-  function addTerrainFromBlack(mask){
-    const iters = Math.max(0, Math.min(6, Math.round(getNum("smoothIters",2))));
-    const thresh= Math.max(0.5, Math.min(0.9, getNum("smoothThresh",0.58)));
-    const smooth=(iters>0)?smoothBinaryMask(mask,mapW,mapH,iters,thresh):mask;
-    blackMask=smooth;
-
-    const boundary=extractBoundaryPoints(smooth,mapW,mapH);
-    const step=Math.max(2, Math.min(20, Math.round(getNum("segStep",6))));
-    const segs=pointsToSegmentsApproxSmooth(boundary, step, 2);
-
-    const bodies=[];
-    for(const seg of segs){
-      const b = segmentToBody(seg, 6, {render:{visible:false}});
-      b.label="terrain";
-      bodies.push(b);
-    }
-    World.add(engine.world, bodies);
-  }
-
-  // ===== lever helpers =====
-  function coinInsideSpring(s){
-    if(!coin) return false;
-    const p=coin.position, a=s.aabb;
-    return (p.x>=a.minX && p.x<=a.maxX && p.y>=a.minY && p.y<=a.maxY);
-  }
-
-  function nearestSpring(){
-    const nearDist=getNum("nearDist",180);
-    let best=null,bestD2=Infinity;
-    for(const s of springs){
-      const dx=coin.position.x-s.center.x;
-      const dy=coin.position.y-s.center.y;
-      const d2=dx*dx+dy*dy;
-      const near=coinInsideSpring(s) || d2<=nearDist*nearDist;
-      if(!near) continue;
-      if(d2<bestD2){bestD2=d2; best=s;}
-    }
-    return best;
-  }
-
-  function setLeverUI(enabled, ratio, spring){
-    const pct=Math.round(ratio*100);
-    pullFill.style.width=pct+"%";
-    pullKnob.style.left=pct+"%";
-    powChip.textContent=pct+"%";
-
-    if(!enabled){
-      leverBadge.textContent="OFF";
-      leverBadge.classList.add("off");
-      dirChip.textContent="dir:-";
-      pullArea.style.opacity="0.45";
-      return;
-    }
-    leverBadge.classList.remove("off");
-    leverBadge.textContent = lever.dragging ? "CHARGING" : "READY";
-    pullArea.style.opacity="1";
-    dirChip.textContent = spring ? (spring.dir>0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
-  }
-
-  function canOperateLever(){
-    return role==="player" && isPlaying && lever.enabled && touchingGround;
-  }
-
-  function markMyAction(){ lastMyActionAt = Date.now(); }
-
-  function launchFromSpring(s, pullRatio){
-    const now = performance.now()/1000;
-    if(now < s.cooldownUntil) return;
-    if(!touchingGround) return;
-
-    const maxImpulse=getNum("maxImpulse",18);
-    const cooldown=getNum("cooldown",0.30);
-
-    const impulse=(maxImpulse*IMPULSE_MULT)*Math.max(0,Math.min(1,pullRatio));
-    Body.setVelocity(coin,{x:s.dir*impulse,y:-impulse*UPWARD_BIAS_FIXED});
-    Body.setAngularVelocity(coin,0);
-    s.cooldownUntil = now + cooldown;
-
-    playSound("shot");
-    sendEvent({type:"shot", by: myName, at: serverTimestamp()});
-    markMyAction();
-  }
-
-  // ===== slope assist =====
-  function isBlackAt(x,y){
-    if(!blackMask) return false;
-    x=Math.max(0,Math.min(mapW-1,x|0));
-    y=Math.max(0,Math.min(mapH-1,y|0));
-    return blackMask[y*mapW+x]===1;
-  }
-  function findGroundY(x,startY,maxDown=160){
-    const sx=x|0;
-    let y=Math.max(0,Math.min(mapH-1,startY|0));
-    for(let i=0;i<maxDown;i++){
-      const yy=y+i;
-      if(yy>=mapH) break;
-      if(isBlackAt(sx,yy) && !isBlackAt(sx,yy-1)) return yy;
-    }
-    return null;
-  }
-  function estimateSlopeAtCoin(){
-    if(!coin) return null;
-    const probe=getNum("slopeProbe",34);
-    const px=coin.position.x, py=coin.position.y;
-    const r=32;
-    const startY=py + r*0.6;
-    const xL=Math.max(0,Math.min(mapW-1,(px-probe)|0));
-    const xR=Math.max(0,Math.min(mapW-1,(px+probe)|0));
-    const yL=findGroundY(xL,startY);
-    const yR=findGroundY(xR,startY);
-    if(yL==null || yR==null) return null;
-    const dx=(xR-xL); if(dx<=0) return null;
-    const dy=(yR-yL);
-    return {slope: dy/dx};
-  }
-  function applySlopeAssist(){
-    if(!coin || !touchingGround) return;
-    const est=estimateSlopeAtCoin();
-    if(!est) return;
-    const tan=est.slope;
-    const sin = tan / Math.sqrt(1+tan*tan);
-    if(Math.abs(sin) < MIN_SIN_TO_APPLY) return;
-
-    const g=engine.gravity.y;
-    const ui=getNum("slopeAssist",2.5);
-
-    let k = ui * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
-
-    const speed=Math.hypot(coin.velocity.x, coin.velocity.y);
-    if(speed < STUCK_SPEED_TH) k *= STUCK_BOOST_MULT;
-
-    const ax = g * sin * k;
-    const dt = 0.016;
-
-    const v=coin.velocity;
-    let vx=v.x + ax*dt;
-
-    const downhillDir=(sin>0)?+1:-1;
-    const minRoll = (speed < STUCK_SPEED_TH) ? 0.30 : 0.14;
-    if(Math.sign(vx)===downhillDir && Math.abs(vx)<minRoll) vx=downhillDir*minRoll;
-
-    Body.setVelocity(coin,{x:vx, y:v.y});
-  }
-
-  // ===== draw =====
-  function drawYellowFrames(){
-    if(!render) return;
-    const ctx=render.context;
-    for(const s of springs){
-      const active=(s===lever.activeSpring);
-      ctx.save();
-      ctx.strokeStyle = active ? "rgba(255,176,0,0.95)" : "rgba(255,210,90,0.70)";
-      ctx.lineWidth = active ? 4 : 3;
-      const a=s.aabb;
-      ctx.strokeRect(a.minX,a.minY,a.maxX-a.minX,a.maxY-a.minY);
-      ctx.font="bold 16px sans-serif";
-      ctx.textAlign="center";
-      ctx.fillStyle = active ? "rgba(255,176,0,0.95)" : "rgba(255,210,90,0.75)";
-      ctx.fillText(s.dir>0?"→":"←", s.center.x, s.center.y-22);
-      ctx.restore();
-    }
-  }
-
-  function drawCoinSpriteAt(ctx, x, y, angle, radius){
-    if(!coinSprite.ready) return;
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(angle||0);
-    ctx.beginPath();
-    ctx.arc(0,0,radius,0,Math.PI*2);
-    ctx.clip();
-    ctx.drawImage(coinSprite.img, -radius, -radius, radius*2, radius*2);
-    ctx.restore();
-  }
-
-  function drawAdminOverlays(){
-    if(!isAdmin || !render) return;
-    const ctx=render.context;
-    ctx.save();
-    for(const h of holes){
-      ctx.beginPath(); ctx.arc(h.position.x,h.position.y,h.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(255,46,26,0.15)"; ctx.fill();
-      ctx.strokeStyle="rgba(255,46,26,0.55)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    for(const g of goals){
-      ctx.beginPath(); ctx.arc(g.position.x,g.position.y,g.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(0,160,255,0.12)"; ctx.fill();
-      ctx.strokeStyle="rgba(0,160,255,0.55)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // ===== firebase helpers =====
-  async function sendEvent(payload){
-    await set(rEvent, payload).catch(()=>{});
-  }
-
-  async function tryAcquireLock(){
-    const res = await runTransaction(rLock, (cur)=>{
-      if (cur == null){
-        return { playerId: myId, playerName: myName, startedAt: Date.now(), lastActionAt: Date.now() };
-      }
-      if (cur && cur.lastActionAt && (Date.now() - cur.lastActionAt > AFK_LIMIT_MS)){
-        return { playerId: myId, playerName: myName, startedAt: Date.now(), lastActionAt: Date.now() };
-      }
-      return;
-    }, {applyLocally:false});
-    return res.committed;
-  }
-
-  async function updateLockHeartbeat(){
-    if (role !== "player" || !isPlaying) return;
-    await update(rLock, { lastActionAt: Date.now() }).catch(()=>{});
-  }
-
-  async function releaseLock(){
-    await runTransaction(rLock, (cur)=>{
-      if (cur && cur.playerId === myId) return null;
-      return;
-    }, {applyLocally:false}).catch(()=>{});
-  }
-
-  onDisconnect(rLock).remove().catch(()=>{});
-
-  let snapInterval=null;
-  function startSnapshotWriter(){
-    stopSnapshotWriter();
-    snapInterval=setInterval(async ()=>{
-      if (role!=="player" || !isPlaying || !coin) return;
-      await set(rSnap, {
-        playerId: myId,
-        playerName: myName,
-        x: coin.position.x,
-        y: coin.position.y,
-        vx: coin.velocity.x,
-        vy: coin.velocity.y,
-        angle: coin.angle,
-        t: Date.now()
-      }).catch(()=>{});
-      await updateLockHeartbeat();
-    }, 120);
-  }
-  function stopSnapshotWriter(){
-    if(snapInterval){ clearInterval(snapInterval); snapInterval=null; }
-  }
-
-  let waitHeartbeat=null;
-  function startWaitHeartbeat(){
-    stopWaitHeartbeat();
-    waitHeartbeat=setInterval(async ()=>{
-      if (role !== "spectator") return;
-      await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-      waitLine.textContent = waitLine.textContent || "";
-    }, 10*60*1000);
-  }
-  function stopWaitHeartbeat(){
-    if(waitHeartbeat){ clearInterval(waitHeartbeat); waitHeartbeat=null; }
-  }
-
-  // ===== hit sound =====
-  let lastHitAt=0;
-  const HIT_COOLDOWN_MS=120;
-  const HIT_SPEED_TH=7.5;
-
-  function handleHitSound(ev){
-    if(!coin) return;
-    const now=performance.now();
-    if(now-lastHitAt < HIT_COOLDOWN_MS) return;
-
-    for(const pair of ev.pairs){
-      const a=pair.bodyA,b=pair.bodyB;
-      const coinHit=(a===coin||b===coin);
-      if(!coinHit) continue;
-      const other=(a===coin)?b:a;
-      if(other.label!=="terrain") continue;
-      const v1=coin.velocity;
-      const v2=other.velocity||{x:0,y:0};
-      const rel=Math.hypot(v1.x-v2.x, v1.y-v2.y);
-      if(rel>=HIT_SPEED_TH){
-        lastHitAt=now;
-        playSound("hit");
-        sendEvent({type:"hit", by: myName, at: serverTimestamp()});
-        break;
-      }
-    }
-  }
-
-  // ===== fail/clear =====
-  let lastResultAt=0;
-  function showResultOnce(msg){
-    const now=performance.now();
-    if(now-lastResultAt<900) return;
-    lastResultAt=now;
-    alert(msg);
-  }
-
-  function onFail(){
-    playSound("fail");
-    sendEvent({type:"fail", by: myName, at: serverTimestamp()});
-    showResultOnce("失敗！");
-    respawnCoin();
-  }
-
-  function onClear(){
-    playSound("clear");
-    sendEvent({type:"clear", by: myName, at: serverTimestamp()});
-    showResultOnce("クリア！");
-    showClearOverlay10s();
-    respawnCoin();
-  }
-
-  // ===== matter events =====
-  function installMatterEvents(){
-    Events.on(engine, "collisionStart", (ev)=>{
-      if(role==="player" && isPlaying) handleHitSound(ev);
-    });
-
-    Events.on(engine, "collisionActive", (ev)=>{
-      touchingGround=false;
-      lastGroundNormal=null;
-      if(!coin) return;
-
-      for(const pair of ev.pairs){
-        const a=pair.bodyA,b=pair.bodyB;
-
-        if ((a===coin && b.label==="hole") || (b===coin && a.label==="hole")){
-          if(role==="player" && isPlaying){ onFail(); markMyAction(); }
-          continue;
-        }
-        if ((a===coin && b.label==="goal") || (b===coin && a.label==="goal")){
-          if(role==="player" && isPlaying){ onClear(); markMyAction(); }
-          continue;
-        }
-
-        const isTerrain = (a===coin && b.label==="terrain") || (b===coin && a.label==="terrain");
-        if(isTerrain){
-          touchingGround=true;
-          lastGroundNormal = pair.collision.normal;
-        }
-      }
-    });
-
-    Events.on(engine, "afterUpdate", ()=>{
-      if(!coin) return;
-
-      const s = springs.length ? nearestSpring() : null;
-      const enabled = !!s && touchingGround && (performance.now()/1000 >= (s?.cooldownUntil||0));
-      lever.enabled=enabled;
-      lever.activeSpring=s;
-
-      // UIは常に更新（操作できるのはプレイヤーだけ）
-      setLeverUI(enabled && (role==="player" && isPlaying), lever.pullRatio, s);
-
-      // プレイヤーのみ補助・AFK
-      if(role==="player" && isPlaying){
-        applySlopeAssist();
-        if(Date.now()-lastMyActionAt > AFK_LIMIT_MS){
-          endPlay("無操作1分のため終了");
-        }
-      }
-
-      if(isAdmin){
-        statusEl.textContent =
-`role=${role} playing=${isPlaying}
-coin=(${coin.position.x.toFixed(1)},${coin.position.y.toFixed(1)}) v=(${coin.velocity.x.toFixed(2)},${coin.velocity.y.toFixed(2)})
-springs=${springs.length} holes=${holes.length} goals=${goals.length}
-slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} stuck=${STUCK_BOOST_MULT}`;
-      } else {
-        statusEl.textContent = "";
-      }
-    });
-
-    Events.on(render, "afterRender", ()=>{
-      const ctx=render.context;
-      const r=32;
-
-      if(role==="spectator" && remoteSnapshot){
-        drawCoinSpriteAt(ctx, remoteSnapshot.x, remoteSnapshot.y, remoteSnapshot.angle, r);
-      } else if (coin){
-        drawCoinSpriteAt(ctx, coin.position.x, coin.position.y, coin.angle, r);
-      }
-
-      drawYellowFrames();
-      drawAdminOverlays();
-    });
-  }
-
-  // ===== lever input =====
-  pullArea.addEventListener("pointerdown", async (e)=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    if(!lever.enabled || !touchingGround) return;
-
-    lever.dragging=true;
-    lever.pointerId=e.pointerId;
-    lever.startX=e.clientX;
-    lever.currentX=e.clientX;
-    pullArea.setPointerCapture(e.pointerId);
-    markMyAction();
-  });
-
-  pullArea.addEventListener("pointermove", (e)=>{
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-    lever.currentX=e.clientX;
-
-    const s=lever.activeSpring;
-    if(!s) return;
-
-    const maxPull=getNum("maxPull",150);
-    const dx=lever.currentX - lever.startX;
-    const pullSigned = -s.dir * dx;
-    const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
-    lever.pullRatio = Math.max(0, Math.min(1, pullPx/maxPull));
-    setLeverUI(true, lever.pullRatio, s);
-    markMyAction();
-  });
-
-  function releaseLever(e){
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-    lever.dragging=false;
-
-    const s=lever.activeSpring;
-    const ratio=lever.pullRatio;
-
-    if(s && ratio>0 && canOperateLever()){
-      launchFromSpring(s, ratio);
-    }
-    lever.pullRatio=0;
-    setLeverUI(true, 0, lever.activeSpring);
-    markMyAction();
-  }
-  pullArea.addEventListener("pointerup", releaseLever);
-  pullArea.addEventListener("pointercancel", releaseLever);
-
-  // ===== launch =====
-  function launchFromSpring(s, pullRatio){
-    const now = performance.now()/1000;
-    if(now < s.cooldownUntil) return;
-    if(!touchingGround) return;
-
-    const maxImpulse=getNum("maxImpulse",18);
-    const cooldown=getNum("cooldown",0.30);
-    const impulse=(maxImpulse*IMPULSE_MULT)*Math.max(0,Math.min(1,pullRatio));
-
-    Body.setVelocity(coin,{x:s.dir*impulse, y:-impulse*UPWARD_BIAS_FIXED});
-    Body.setAngularVelocity(coin,0);
-    s.cooldownUntil=now+cooldown;
-
-    playSound("shot");
-    sendEvent({type:"shot", by: myName, at: serverTimestamp()});
-    markMyAction();
-  }
-
-  // ===== UI events =====
-  btnSelectJanken.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    selectMsg.textContent = "じゃんけんゲームは準備中です（10円ゲームを選んでください）";
-  });
-
-  btnSelectCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("name");
-  });
-
-  btnNameBack.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("select");
-  });
-
-  btnNameOk.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    myName = (nameInput.value || "").trim() || "匿名";
-    meLine.textContent = `${myName}（id:${myId.slice(0,8)}）`;
-    showScreen("coin");
-    await bootCoinGame();
-  });
-
-  adminEnter.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(adminPass.value === "1122"){
-      setAdminMode(true);
-      adminMsg.textContent = "運営モードON";
-      adminPass.value = "";
-    } else {
-      adminMsg.textContent = "パスワードが違います";
-    }
-  });
-
-  adminExit.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    setAdminMode(false);
-    adminMsg.textContent = "運営モードOFF";
-  });
-
-  btnReload?.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!isAdmin) return;
-    await bootCoinGame();
-  });
-
-  btnPlay.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-
-    const ok = await tryAcquireLock();
-    if(!ok){
-      alert("他の人がプレイ中です。観戦してください。");
-      return;
-    }
-
-    role="player";
-    isPlaying=true;
-
-    btnEnd.disabled=false;
-    btnResetCoin.disabled=false;
-    btnRespawn.disabled=false;
-    btnPlay.disabled=true;
-    btnWait.style.display="none";
-
-    // 待機から外す
-    await update(rWait, {[myId]: null}).catch(()=>{});
-    stopWaitHeartbeat();
-
-    onDisconnect(rLock).remove().catch(()=>{});
-
-    lastMyActionAt=Date.now();
-    startSnapshotWriter();
-    remoteSnapshot=null;
-
-    await sendEvent({type:"start", by: myName, at: serverTimestamp()}).catch(()=>{});
-  });
-
-  async function endPlay(reason="終了"){
-    if(!(role==="player" && isPlaying)) return;
-
-    isPlaying=false;
-    role="spectator";
-
-    btnEnd.disabled=true;
-    btnResetCoin.disabled=true;
-    btnRespawn.disabled=true;
-    btnPlay.disabled=false;
-    btnWait.style.display="inline-block";
-
-    stopSnapshotWriter();
-    await releaseLock();
-
-    startWaitHeartbeat();
-    await sendEvent({type:"end", by: myName, reason, at: serverTimestamp()}).catch(()=>{});
-  }
-
-  btnEnd.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    await endPlay("手動終了");
-  });
-
-  btnResetCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    respawnCoin();
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnRespawn.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    addCoinNew();
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnWait.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-    await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-    waitLine.textContent = "待機中…";
-    startWaitHeartbeat();
-  });
-
-  // ===== Firebase subscriptions =====
-  function subscribeRealtime(){
-    onValue(rLock, (snap)=>{
-      const v=snap.val();
-      if(!v){
-        currentPlayerLine.textContent="誰もプレイしていません";
-        btnPlay.disabled = isPlaying;
-        if(!isPlaying) btnWait.style.display="inline-block";
-        return;
-      }
-      currentPlayerLine.textContent=`${v.playerName} がプレイ中`;
-      if(!(role==="player" && isPlaying)){
-        btnPlay.disabled=true;
-        btnWait.style.display="inline-block";
-      }
-    });
-
-    onValue(rWait, (snap)=>{
-      const v=snap.val()||{};
-      const names=Object.values(v).map(x=>x?.name).filter(Boolean);
-      waitLine.textContent = names.length ? `待機: ${names.join(" / ")}` : waitLine.textContent;
-    });
-
-    onValue(rEvent, (snap)=>{
-      const e=snap.val();
-      if(!e || !e.type) return;
-
-      // プレイヤーはローカル音があるので二重を避ける
-      if(role==="player" && isPlaying) return;
-
-      if(e.type==="shot") playSound("shot");
-      else if(e.type==="hit") playSound("hit");
-      else if(e.type==="fail") playSound("fail");
-      else if(e.type==="spawn") playSound("spawn");
-      else if(e.type==="clear") playSound("clear");
-    });
-
-    onValue(rSnap, (snap)=>{
-      const v=snap.val();
-      if(!v) return;
-      if(role==="spectator") remoteSnapshot=v;
-    });
-  }
-  subscribeRealtime();
-
-  // ===== Snapshot writer =====
-  let snapInterval=null;
-  function startSnapshotWriter(){
-    stopSnapshotWriter();
-    snapInterval=setInterval(async ()=>{
-      if(role!=="player" || !isPlaying || !coin) return;
-      await set(rSnap, {
-        playerId: myId,
-        playerName: myName,
-        x: coin.position.x,
-        y: coin.position.y,
-        vx: coin.velocity.x,
-        vy: coin.velocity.y,
-        angle: coin.angle,
-        t: Date.now()
-      }).catch(()=>{});
-      await updateLockHeartbeat();
-    }, 120);
-  }
-  function stopSnapshotWriter(){
-    if(snapInterval){ clearInterval(snapInterval); snapInterval=null; }
-  }
-
-  let waitHeartbeat=null;
-  function startWaitHeartbeat(){
-    stopWaitHeartbeat();
-    waitHeartbeat=setInterval(async ()=>{
-      if(role!=="spectator") return;
-      await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-    }, 10*60*1000);
-  }
-  function stopWaitHeartbeat(){
-    if(waitHeartbeat){ clearInterval(waitHeartbeat); waitHeartbeat=null; }
-  }
-
-  // ===== lock =====
-  async function tryAcquireLock(){
-    const res=await runTransaction(rLock, (cur)=>{
-      if(cur==null){
-        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
-      }
-      if(cur && cur.lastActionAt && (Date.now()-cur.lastActionAt > AFK_LIMIT_MS)){
-        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
-      }
-      return;
-    }, {applyLocally:false});
-    return res.committed;
-  }
-
-  async function updateLockHeartbeat(){
-    if(role!=="player" || !isPlaying) return;
-    await update(rLock, { lastActionAt: Date.now() }).catch(()=>{});
-  }
-
-  async function releaseLock(){
-    await runTransaction(rLock, (cur)=>{
-      if(cur && cur.playerId===myId) return null;
-      return;
-    }, {applyLocally:false}).catch(()=>{});
-  }
-
-  onDisconnect(rLock).remove().catch(()=>{});
-
-  // ===== boot =====
-  async function bootCoinGame(){
-    destroyGame();
-
-    await coinSprite.load();
-    await loadRen();
-
-    // 背景URLを“確実に”決める（map見えないバグ修正）
-    const bgUrl = await resolveBackgroundUrl();
-
-    // Engine/Renderer
-    createEngine();
-    createRenderer(bgUrl);
-
-    runner = Runner.create();
-    Render.run(render);
-    Runner.run(runner, engine);
-
-    resizeCanvasToFit();
-    window.addEventListener("resize", resizeCanvasToFit, {passive:true});
-
-    // build masks
-    const masks = buildMasks();
-
-    // spawn
-    const greenComps = extractComponents(masks.green, mapW, mapH);
-    spawnPoint = greenComps.length ? greenComps[0].centroid : {x:100,y:100};
-
-    // terrain
-    addTerrainFromBlack(masks.black);
-
-    // sensors
-    addHoles(extractComponents(masks.red, mapW, mapH));
-    addGoals(extractComponents(masks.blue, mapW, mapH));
-    addSprings(extractComponents(masks.yellow, mapW, mapH));
-
-    // coin
-    addCoinNew();
-
-    // events
-    installMatterEvents();
-
-    // initial
-    role="spectator";
-    isPlaying=false;
-    btnEnd.disabled=true;
-    btnResetCoin.disabled=true;
-    btnRespawn.disabled=true;
-    btnPlay.disabled=false;
-    btnWait.style.display="inline-block";
-
-    startWaitHeartbeat();
-  }
-
-  // ===== lever UI update helper =====
-  function setLeverUI(enabled, ratio, spring){
-    const pct=Math.round(ratio*100);
-    pullFill.style.width=pct+"%";
-    pullKnob.style.left=pct+"%";
-    powChip.textContent=pct+"%";
-    if(!enabled){
-      leverBadge.textContent="OFF";
-      leverBadge.classList.add("off");
-      dirChip.textContent="dir:-";
-      pullArea.style.opacity="0.45";
-      return;
-    }
-    leverBadge.classList.remove("off");
-    leverBadge.textContent = lever.dragging ? "CHARGING" : "READY";
-    pullArea.style.opacity="1";
-    dirChip.textContent = spring ? (spring.dir>0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
-  }
-
-  // ===== slope assist =====
-  function isBlackAt(x,y){
-    if(!blackMask) return false;
-    x=Math.max(0,Math.min(mapW-1,x|0));
-    y=Math.max(0,Math.min(mapH-1,y|0));
-    return blackMask[y*mapW+x]===1;
-  }
-  function findGroundY(x,startY,maxDown=160){
-    const sx=x|0;
-    let y=Math.max(0,Math.min(mapH-1,startY|0));
-    for(let i=0;i<maxDown;i++){
-      const yy=y+i;
-      if(yy>=mapH) break;
-      if(isBlackAt(sx,yy) && !isBlackAt(sx,yy-1)) return yy;
-    }
-    return null;
-  }
-  function estimateSlopeAtCoin(){
-    if(!coin) return null;
-    const probe=getNum("slopeProbe",34);
-    const px=coin.position.x, py=coin.position.y;
-    const r=32;
-    const startY=py + r*0.6;
-    const xL=Math.max(0,Math.min(mapW-1,(px-probe)|0));
-    const xR=Math.max(0,Math.min(mapW-1,(px+probe)|0));
-    const yL=findGroundY(xL,startY);
-    const yR=findGroundY(xR,startY);
-    if(yL==null || yR==null) return null;
-    const dx=(xR-xL); if(dx<=0) return null;
-    const dy=(yR-yL);
-    return {slope: dy/dx};
-  }
-  function applySlopeAssist(){
-    if(!coin || !touchingGround) return;
-    const est=estimateSlopeAtCoin();
-    if(!est) return;
-    const tan=est.slope;
-    const sin = tan / Math.sqrt(1+tan*tan);
-    if(Math.abs(sin) < MIN_SIN_TO_APPLY) return;
-
-    const g=engine.gravity.y;
-    const ui=getNum("slopeAssist",2.5);
-
-    let k = ui * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
-
-    const speed=Math.hypot(coin.velocity.x, coin.velocity.y);
-    if(speed < STUCK_SPEED_TH) k *= STUCK_BOOST_MULT;
-
-    const ax = g * sin * k;
-    const dt = 0.016;
-
-    const v=coin.velocity;
-    let vx=v.x + ax*dt;
-
-    const downhillDir=(sin>0)?+1:-1;
-    const minRoll = (speed < STUCK_SPEED_TH) ? 0.34 : 0.16;
-    if(Math.sign(vx)===downhillDir && Math.abs(vx)<minRoll) vx=downhillDir*minRoll;
-
-    Body.setVelocity(coin,{x:vx, y:v.y});
-  }
-
-  // ===== nearest spring =====
-  function coinInsideSpring(s){
-    if(!coin) return false;
-    const p=coin.position, a=s.aabb;
-    return (p.x>=a.minX && p.x<=a.maxX && p.y>=a.minY && p.y<=a.maxY);
-  }
-  function nearestSpring(){
-    const nearDist=getNum("nearDist",180);
-    let best=null,bestD2=Infinity;
-    for(const s of springs){
-      const dx=coin.position.x-s.center.x;
-      const dy=coin.position.y-s.center.y;
-      const d2=dx*dx+dy*dy;
-      const near=coinInsideSpring(s) || d2<=nearDist*nearDist;
-      if(!near) continue;
-      if(d2<bestD2){bestD2=d2; best=s;}
-    }
-    return best;
-  }
-
-  // ===== draw helpers =====
-  function drawYellowFrames(){
-    if(!render) return;
-    const ctx=render.context;
-    for(const s of springs){
-      const active=(s===lever.activeSpring);
-      ctx.save();
-      ctx.strokeStyle = active ? "rgba(255,176,0,0.95)" : "rgba(255,210,90,0.70)";
-      ctx.lineWidth = active ? 4 : 3;
-      const a=s.aabb;
-      ctx.strokeRect(a.minX,a.minY,a.maxX-a.minX,a.maxY-a.minY);
-      ctx.font="bold 16px sans-serif";
-      ctx.textAlign="center";
-      ctx.fillStyle = active ? "rgba(255,176,0,0.95)" : "rgba(255,210,90,0.75)";
-      ctx.fillText(s.dir>0?"→":"←", s.center.x, s.center.y-22);
-      ctx.restore();
-    }
-  }
-  function drawCoinSpriteAt(ctx, x, y, angle, radius){
-    if(!coinSprite.ready) return;
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(angle||0);
-    ctx.beginPath();
-    ctx.arc(0,0,radius,0,Math.PI*2);
-    ctx.clip();
-    ctx.drawImage(coinSprite.img, -radius, -radius, radius*2, radius*2);
-    ctx.restore();
-  }
-  function drawAdminOverlays(){
-    if(!isAdmin || !render) return;
-    const ctx=render.context;
-    ctx.save();
-    for(const h of holes){
-      ctx.beginPath(); ctx.arc(h.position.x,h.position.y,h.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(255,46,26,0.15)"; ctx.fill();
-      ctx.strokeStyle="rgba(255,46,26,0.55)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    for(const g of goals){
-      ctx.beginPath(); ctx.arc(g.position.x,g.position.y,g.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(0,160,255,0.12)"; ctx.fill();
-      ctx.strokeStyle="rgba(0,160,255,0.55)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // ===== terrain builder =====
-  function addTerrainFromBlack(mask){
-    const iters=Math.max(0, Math.min(6, Math.round(getNum("smoothIters",2))));
-    const thresh=Math.max(0.5, Math.min(0.9, getNum("smoothThresh",0.58)));
-    const smooth=(iters>0)?smoothBinaryMask(mask,mapW,mapH,iters,thresh):mask;
-    blackMask=smooth;
-
-    const boundary=extractBoundaryPoints(smooth,mapW,mapH);
-    const step=Math.max(2, Math.min(20, Math.round(getNum("segStep",6))));
-    const segs=pointsToSegmentsApproxSmooth(boundary, step, 2);
-
-    const bodies=[];
-    for(const seg of segs){
-      const b=segmentToBody(seg, 6, {render:{visible:false}});
-      b.label="terrain";
-      bodies.push(b);
-    }
-    World.add(engine.world, bodies);
-  }
-
-  // ===== sensors builder =====
-  function addHoles(redComps){
-    holes=[];
+  function addSensors(redComps, blueComps){
+    holes=[]; goals=[];
     for(const c of redComps){
-      let r=Math.sqrt(c.area/Math.PI);
-      r=Math.max(12, Math.min(90, r));
+      let r=Math.sqrt(c.area/Math.PI); r=Math.max(12,Math.min(90,r));
       const b=Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
-      b.label="hole";
-      holes.push(b);
+      b.label="hole"; holes.push(b);
     }
-    World.add(engine.world, holes);
-  }
-  function addGoals(blueComps){
-    goals=[];
     for(const c of blueComps){
-      let r=Math.sqrt(c.area/Math.PI);
-      r=Math.max(14, Math.min(110, r));
+      let r=Math.sqrt(c.area/Math.PI); r=Math.max(14,Math.min(110,r));
       const b=Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
-      b.label="goal";
-      goals.push(b);
+      b.label="goal"; goals.push(b);
     }
-    World.add(engine.world, goals);
-  }
-  function addSprings(yellowComps){
-    springs=[];
-    const centerX=mapW/2;
-    const picked=yellowComps.slice(0,6);
-    for(const c of picked){
-      const dir=(c.centroid.x<centerX)?+1:-1;
-      const pad=8;
-      const aabb={minX:c.aabb.minX-pad, minY:c.aabb.minY-pad, maxX:c.aabb.maxX+pad, maxY:c.aabb.maxY+pad};
-      const sensor=Bodies.rectangle((aabb.minX+aabb.maxX)/2,(aabb.minY+aabb.maxY)/2,
-        Math.max(10,aabb.maxX-aabb.minX), Math.max(10,aabb.maxY-aabb.minY),
-        {isStatic:true,isSensor:true,render:{visible:false}}
-      );
-      sensor.label="springSensor";
-      springs.push({sensor, center:{x:c.centroid.x,y:c.centroid.y}, dir, cooldownUntil:0, aabb});
-    }
-    World.add(engine.world, springs.map(s=>s.sensor));
+    World.add(engine.world, holes.concat(goals));
   }
 
-  // ===== coin logic =====
   function addCoinNew(){
-    if(!engine) return;
     if(coin){ World.remove(engine.world, coin); coin=null; }
-    const r=32;
-    coin=Bodies.circle(spawnPoint.x,spawnPoint.y,r,{
-      restitution:0,
-      friction:0.012,
-      frictionStatic:0.12,
-      frictionAir:0.006,
-      density:0.005,
+    coin=Bodies.circle(spawnPoint.x,spawnPoint.y,32,{
+      restitution:0, friction:0.012, frictionStatic:0.15, frictionAir:0.006, density:0.005,
       render:{visible:false}
     });
     World.add(engine.world, coin);
     playSound("spawn");
   }
+
   function respawnCoin(){
     if(!coin) return;
     Body.setPosition(coin,{x:spawnPoint.x,y:spawnPoint.y});
@@ -1896,140 +722,164 @@ slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} 
     playSound("spawn");
   }
 
-  // ===== lever can operate =====
-  function canOperateLever(){
-    return role==="player" && isPlaying && lever.enabled && touchingGround;
+  // ===== 坂補助（より強化）=====
+  function isBlackAt(x,y){
+    if(!blackMask) return false;
+    x=Math.max(0,Math.min(mapW-1,x|0));
+    y=Math.max(0,Math.min(mapH-1,y|0));
+    return blackMask[y*mapW+x]===1;
   }
-
-  // ===== launch =====
-  function launchFromSpring(s, pullRatio){
-    const now=performance.now()/1000;
-    if(now < s.cooldownUntil) return;
-    if(!touchingGround) return;
-    const maxImpulse=getNum("maxImpulse",18);
-    const cooldown=getNum("cooldown",0.30);
-
-    const impulse=(maxImpulse*IMPULSE_MULT)*Math.max(0,Math.min(1,pullRatio));
-    Body.setVelocity(coin,{x:s.dir*impulse, y:-impulse*UPWARD_BIAS_FIXED});
-    Body.setAngularVelocity(coin,0);
-    s.cooldownUntil=now+cooldown;
-
-    playSound("shot");
-    sendEvent({type:"shot", by: myName, at: serverTimestamp()});
-    markMyAction();
-  }
-
-  // ===== lever input =====
-  pullArea.addEventListener("pointerdown", async (e)=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    if(!lever.enabled || !touchingGround) return;
-    lever.dragging=true;
-    lever.pointerId=e.pointerId;
-    lever.startX=e.clientX;
-    lever.currentX=e.clientX;
-    pullArea.setPointerCapture(e.pointerId);
-    markMyAction();
-  });
-
-  pullArea.addEventListener("pointermove", (e)=>{
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-    lever.currentX=e.clientX;
-
-    const s=lever.activeSpring;
-    if(!s) return;
-
-    const maxPull=getNum("maxPull",150);
-    const dx=lever.currentX - lever.startX;
-    const pullSigned = -s.dir * dx;
-    const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
-    lever.pullRatio = Math.max(0, Math.min(1, pullPx/maxPull));
-    setLeverUI(true, lever.pullRatio, s);
-    markMyAction();
-  });
-
-  function releaseLever(e){
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-    lever.dragging=false;
-
-    const s=lever.activeSpring;
-    const ratio=lever.pullRatio;
-    if(s && ratio>0 && canOperateLever()) launchFromSpring(s, ratio);
-
-    lever.pullRatio=0;
-    setLeverUI(true, 0, lever.activeSpring);
-    markMyAction();
-  }
-  pullArea.addEventListener("pointerup", releaseLever);
-  pullArea.addEventListener("pointercancel", releaseLever);
-
-  // ===== lever UI =====
-  function setLeverUI(enabled, ratio, spring){
-    const pct=Math.round(ratio*100);
-    pullFill.style.width=pct+"%";
-    pullKnob.style.left=pct+"%";
-    powChip.textContent=pct+"%";
-    if(!enabled){
-      leverBadge.textContent="OFF";
-      leverBadge.classList.add("off");
-      dirChip.textContent="dir:-";
-      pullArea.style.opacity="0.45";
-      return;
+  function findGroundY(x,startY,maxDown=160){
+    const sx=x|0;
+    let y=Math.max(0,Math.min(mapH-1,startY|0));
+    for(let i=0;i<maxDown;i++){
+      const yy=y+i;
+      if(yy>=mapH) break;
+      if(isBlackAt(sx,yy) && !isBlackAt(sx,yy-1)) return yy;
     }
-    leverBadge.classList.remove("off");
-    leverBadge.textContent = lever.dragging ? "CHARGING" : "READY";
-    pullArea.style.opacity="1";
-    dirChip.textContent = spring ? (spring.dir>0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
+    return null;
   }
-
-  // ===== slope assist =====
+  function estimateSlopeAtCoin(){
+    const probe=34;
+    const px=coin.position.x, py=coin.position.y;
+    const startY = py + 32*0.6;
+    const xL=Math.max(0,Math.min(mapW-1,(px-probe)|0));
+    const xR=Math.max(0,Math.min(mapW-1,(px+probe)|0));
+    const yL=findGroundY(xL,startY);
+    const yR=findGroundY(xR,startY);
+    if(yL==null||yR==null) return null;
+    const dx=xR-xL; if(dx<=0) return null;
+    return { slope:(yR-yL)/dx };
+  }
   function applySlopeAssist(){
-    if(!coin || !touchingGround) return;
-    const est=estimateSlopeAtCoin();
-    if(!est) return;
+    if(!touchingGround) return;
+    const est=estimateSlopeAtCoin(); if(!est) return;
     const tan=est.slope;
     const sin = tan / Math.sqrt(1+tan*tan);
     if(Math.abs(sin) < MIN_SIN_TO_APPLY) return;
 
     const g=engine.gravity.y;
-    const ui=getNum("slopeAssist",2.5);
+    let k = 2.5 * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
 
-    let k = ui * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
     const speed=Math.hypot(coin.velocity.x, coin.velocity.y);
     if(speed < STUCK_SPEED_TH) k *= STUCK_BOOST_MULT;
 
     const ax = g * sin * k;
-    const dt = 0.016;
-
-    const v=coin.velocity;
-    let vx=v.x + ax*dt;
+    const dt=0.016;
+    let vx = coin.velocity.x + ax*dt;
 
     const downhillDir=(sin>0)?+1:-1;
-    const minRoll = (speed < STUCK_SPEED_TH) ? 0.36 : 0.18;
+    const minRoll=(speed<STUCK_SPEED_TH)?0.30:0.14;
     if(Math.sign(vx)===downhillDir && Math.abs(vx)<minRoll) vx=downhillDir*minRoll;
 
-    Body.setVelocity(coin,{x:vx, y:v.y});
+    Body.setVelocity(coin,{x:vx,y:coin.velocity.y});
   }
 
-  function estimateSlopeAtCoin(){
-    if(!coin) return null;
-    const probe=getNum("slopeProbe",34);
-    const px=coin.position.x, py=coin.position.y;
-    const r=32;
-    const startY=py + r*0.6;
-    const xL=Math.max(0,Math.min(mapW-1,(px-probe)|0));
-    const xR=Math.max(0,Math.min(mapW-1,(px+probe)|0));
-    const yL=findGroundY(xL,startY);
-    const yR=findGroundY(xR,startY);
-    if(yL==null || yR==null) return null;
-    const dx=(xR-xL); if(dx<=0) return null;
-    const dy=(yR-yL);
-    return {slope: dy/dx};
+  // ===== 表示（map+coin+黄色枠）=====
+  function drawYellowFrames(){
+    const ctx=render.context;
+    for(const s of springs){
+      const active = (s===lever.activeSpring);
+      ctx.save();
+      ctx.strokeStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.55)";
+      ctx.lineWidth = active ? 4 : 3;
+      const a=s.aabb;
+      ctx.strokeRect(a.minX,a.minY,a.maxX-a.minX,a.maxY-a.minY);
+      ctx.font="bold 16px sans-serif";
+      ctx.textAlign="center";
+      ctx.fillStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.7)";
+      ctx.fillText(s.dir>0?"→":"←", s.center.x, s.center.y-22);
+      ctx.restore();
+    }
+  }
+  function drawCoinSprite(ctx,x,y,angle,r){
+    if(!coinSprite.ready) return;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(angle||0);
+    ctx.beginPath();
+    ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.clip();
+    ctx.drawImage(coinSprite.img, -r, -r, r*2, r*2);
+    ctx.restore();
   }
 
-  // ===== events =====
+  // ===== クリア演出 =====
+  let clearTimer=null;
+  function showClearOverlay10s(){
+    clearOverlay.style.display="flex";
+    if(clearTimer) clearTimeout(clearTimer);
+    clearTimer=setTimeout(()=>{clearOverlay.style.display="none";}, 10_000);
+  }
+
+  // ==========================
+  // Firebase：イベント/同期/ロック
+  // ==========================
+  async function sendEvent(payload){
+    await set(rEvent, payload).catch(()=>{});
+  }
+
+  async function tryAcquireLock(){
+    const res = await runTransaction(rLock, (cur)=>{
+      if(cur==null){
+        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
+      }
+      if(cur?.lastActionAt && (Date.now()-cur.lastActionAt>AFK_LIMIT_MS)){
+        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
+      }
+      return; // abort
+    }, {applyLocally:false});
+    return res.committed;
+  }
+
+  async function releaseLock(){
+    await runTransaction(rLock, (cur)=>{
+      if(cur?.playerId===myId) return null;
+      return;
+    }, {applyLocally:false}).catch(()=>{});
+  }
+
+  async function updateLockHeartbeat(){
+    if(!(role==="player" && isPlaying)) return;
+    await update(rLock, {lastActionAt:Date.now()}).catch(()=>{});
+  }
+
+  onDisconnect(rLock).remove().catch(()=>{});
+
+  let snapInterval=null;
+  function startSnapshotWriter(){
+    stopSnapshotWriter();
+    snapInterval=setInterval(async ()=>{
+      if(!(role==="player" && isPlaying) || !coin) return;
+      await set(rSnap,{
+        playerId:myId, playerName:myName,
+        x:coin.position.x,y:coin.position.y,vx:coin.velocity.x,vy:coin.velocity.y,angle:coin.angle,
+        t:Date.now()
+      }).catch(()=>{});
+      await updateLockHeartbeat();
+    }, 120);
+  }
+  function stopSnapshotWriter(){
+    if(snapInterval){clearInterval(snapInterval); snapInterval=null;}
+  }
+
+  // 待機（10分更新）
+  let waitHeartbeat=null;
+  function startWaitHeartbeat(){
+    stopWaitHeartbeat();
+    waitHeartbeat=setInterval(async ()=>{
+      if(role!=="spectator") return;
+      await update(rWait,{[myId]:{name:myName, at:serverTimestamp()}}).catch(()=>{});
+      waitLine.textContent = "待機リスト更新（10分）";
+    }, 10*60*1000);
+  }
+  function stopWaitHeartbeat(){
+    if(waitHeartbeat){clearInterval(waitHeartbeat); waitHeartbeat=null;}
+  }
+
+  // ==========================
+  // Matterイベント（判定/音）
+  // ==========================
   let lastHitAt=0;
   const HIT_COOLDOWN_MS=120;
   const HIT_SPEED_TH=7.5;
@@ -2041,39 +891,40 @@ slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} 
 
     for(const pair of ev.pairs){
       const a=pair.bodyA,b=pair.bodyB;
-      const coinHit=(a===coin||b===coin);
-      if(!coinHit) continue;
+      if(!(a===coin || b===coin)) continue;
       const other=(a===coin)?b:a;
       if(other.label!=="terrain") continue;
-
-      const v1=coin.velocity;
-      const v2=other.velocity||{x:0,y:0};
-      const rel=Math.hypot(v1.x-v2.x, v1.y-v2.y);
+      const rel=Math.hypot(coin.velocity.x-(other.velocity?.x||0), coin.velocity.y-(other.velocity?.y||0));
       if(rel>=HIT_SPEED_TH){
         lastHitAt=now;
         playSound("hit");
-        sendEvent({type:"hit", by: myName, at: serverTimestamp()});
+        sendEvent({type:"hit", by:myName, at:serverTimestamp()});
         break;
       }
     }
   }
 
-  function onFail(){
-    playSound("fail");
-    sendEvent({type:"fail", by: myName, at: serverTimestamp()});
-    alert("失敗！");
-    respawnCoin();
+  function markMyAction(){ lastMyActionAt=Date.now(); }
+
+  async function endPlay(reason="終了"){
+    if(!(role==="player" && isPlaying)) return;
+    isPlaying=false;
+    role="spectator";
+    stopSnapshotWriter();
+    await releaseLock();
+
+    btnEnd.disabled=true;
+    btnResetCoin.disabled=true;
+    btnRespawn.disabled=true;
+    btnPlay.disabled=false;
+
+    btnWait.disabled=false;
+    startWaitHeartbeat();
+
+    await sendEvent({type:"end", by:myName, reason, at:serverTimestamp()}).catch(()=>{});
   }
 
-  function onClear(){
-    playSound("clear");
-    sendEvent({type:"clear", by: myName, at: serverTimestamp()});
-    alert("クリア！");
-    showClearOverlay10s();
-    respawnCoin();
-  }
-
-  function installMatterEvents(){
+  function installEvents(){
     Events.on(engine,"collisionStart",(ev)=>{
       if(role==="player" && isPlaying) handleHitSound(ev);
     });
@@ -2086,19 +937,33 @@ slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} 
       for(const pair of ev.pairs){
         const a=pair.bodyA,b=pair.bodyB;
 
-        if ((a===coin && b.label==="hole") || (b===coin && a.label==="hole")){
-          if(role==="player" && isPlaying){ onFail(); markMyAction(); }
+        // red fail
+        if((a===coin && b.label==="hole") || (b===coin && a.label==="hole")){
+          if(role==="player" && isPlaying){
+            playSound("fail");
+            sendEvent({type:"fail", by:myName, at:serverTimestamp()});
+            respawnCoin();
+            markMyAction();
+          }
           continue;
         }
-        if ((a===coin && b.label==="goal") || (b===coin && a.label==="goal")){
-          if(role==="player" && isPlaying){ onClear(); markMyAction(); }
+
+        // blue clear
+        if((a===coin && b.label==="goal") || (b===coin && a.label==="goal")){
+          if(role==="player" && isPlaying){
+            playSound("clear");
+            sendEvent({type:"clear", by:myName, at:serverTimestamp()});
+            showClearOverlay10s();
+            respawnCoin();
+            markMyAction();
+          }
           continue;
         }
 
         const isTerrain = (a===coin && b.label==="terrain") || (b===coin && a.label==="terrain");
         if(isTerrain){
           touchingGround=true;
-          lastGroundNormal = pair.collision.normal;
+          lastGroundNormal=pair.collision.normal;
         }
       }
     });
@@ -2106,12 +971,26 @@ slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} 
     Events.on(engine,"afterUpdate",()=>{
       if(!coin) return;
 
-      const s = springs.length ? nearestSpring() : null;
-      const enabled = !!s && touchingGround && (performance.now()/1000 >= (s?.cooldownUntil||0));
-      lever.enabled=enabled;
-      lever.activeSpring=s;
+      // active spring（表示用）
+      const s = springs.length ? (()=> {
+        const nearDist=180;
+        let best=null, bestD2=Infinity;
+        for(const sp of springs){
+          const dx=coin.position.x-sp.center.x;
+          const dy=coin.position.y-sp.center.y;
+          const d2=dx*dx+dy*dy;
+          const a=sp.aabb;
+          const inside=(coin.position.x>=a.minX && coin.position.x<=a.maxX && coin.position.y>=a.minY && coin.position.y<=a.maxY);
+          if(!(inside || d2<=nearDist*nearDist)) continue;
+          if(d2<bestD2){bestD2=d2; best=sp;}
+        }
+        return best;
+      })() : null;
 
-      setLeverUI(enabled && (role==="player" && isPlaying), lever.pullRatio, s);
+      lever.activeSpring=s;
+      lever.enabled=!!s && touchingGround;
+
+      setLeverUI(lever.enabled && role==="player" && isPlaying, lever.pullRatio, s);
 
       if(role==="player" && isPlaying){
         applySlopeAssist();
@@ -2120,12 +999,21 @@ slope: ui=${getNum("slopeAssist",2.5)} x${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} 
         }
       }
 
+      // 平坦停止は最小限
+      if(touchingGround && lastGroundNormal){
+        const slopeMeasure=Math.abs(lastGroundNormal.x);
+        if(Math.abs(coin.velocity.x)<0.03 && Math.abs(coin.angularVelocity)<0.012 && slopeMeasure<0.05){
+          Body.setVelocity(coin,{x:0,y:coin.velocity.y});
+          Body.setAngularVelocity(coin,0);
+        }
+      }
+
       if(isAdmin){
         statusEl.textContent =
-`role=${role} playing=${isPlaying}
+`bg=${render?.canvas?.style?.backgroundImage || "-"}
+role=${role} playing=${isPlaying}
 coin=(${coin.position.x.toFixed(1)},${coin.position.y.toFixed(1)}) v=(${coin.velocity.x.toFixed(2)},${coin.velocity.y.toFixed(2)})
-springs=${springs.length} holes=${holes.length} goals=${goals.length}
-bgWarn=${bgWarn.classList.contains("show")}`;
+springs=${springs.length} holes=${holes.length} goals=${goals.length}`;
       } else {
         statusEl.textContent = "";
       }
@@ -2133,49 +1021,133 @@ bgWarn=${bgWarn.classList.contains("show")}`;
 
     Events.on(render,"afterRender",()=>{
       const ctx=render.context;
-      const r=32;
 
+      // 観戦は remoteSnapshot を描画
       if(role==="spectator" && remoteSnapshot){
-        drawCoinSpriteAt(ctx, remoteSnapshot.x, remoteSnapshot.y, remoteSnapshot.angle, r);
-      } else if(coin){
-        drawCoinSpriteAt(ctx, coin.position.x, coin.position.y, coin.angle, r);
+        drawCoinSprite(ctx, remoteSnapshot.x, remoteSnapshot.y, remoteSnapshot.angle, 32);
+      } else {
+        drawCoinSprite(ctx, coin.position.x, coin.position.y, coin.angle, 32);
       }
-
       drawYellowFrames();
-      drawAdminOverlays();
     });
   }
 
-  // ===== realtime =====
-  function subscribeRealtime(){
-    onValue(rLock, (snap)=>{
+  function setLeverUI(enabled, ratio, spring){
+    const pct=Math.round(ratio*100);
+    pullFill.style.width=pct+"%";
+    pullKnob.style.left=pct+"%";
+    powChip.textContent=pct+"%";
+
+    if(!enabled){
+      leverBadge.textContent="OFF";
+      leverBadge.classList.add("off");
+      dirChip.textContent="dir:-";
+      pullArea.style.opacity="0.45";
+      return;
+    }
+    leverBadge.classList.remove("off");
+    leverBadge.textContent=lever.dragging?"CHARGING":"READY";
+    pullArea.style.opacity="1";
+    dirChip.textContent = spring ? (spring.dir>0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
+  }
+
+  function launchFromSpring(s, pullRatio){
+    const now = performance.now()/1000;
+    if(now < s.cooldownUntil) return;
+    if(!touchingGround) return;
+
+    const maxImpulse = 18;
+    const cooldown = 0.30;
+    const impulse = (maxImpulse * IMPULSE_MULT) * Math.max(0,Math.min(1,pullRatio));
+
+    Body.setVelocity(coin, {x:s.dir*impulse, y:0});
+    Body.setAngularVelocity(coin,0);
+    s.cooldownUntil = now + cooldown;
+
+    playSound("shot");
+    sendEvent({type:"shot", by:myName, at:serverTimestamp()});
+    markMyAction();
+  }
+
+  // レバー入力
+  pullArea.addEventListener("pointerdown", async (e)=>{
+    await unlockAudioOnce();
+    if(!(role==="player" && isPlaying)) return;
+    if(!lever.enabled || !touchingGround) return;
+
+    lever.dragging=true;
+    lever.pointerId=e.pointerId;
+    lever.startX=e.clientX;
+    lever.currentX=e.clientX;
+    pullArea.setPointerCapture(e.pointerId);
+    markMyAction();
+  });
+
+  pullArea.addEventListener("pointermove",(e)=>{
+    if(!lever.dragging) return;
+    if(lever.pointerId!==e.pointerId) return;
+    lever.currentX=e.clientX;
+
+    const s=lever.activeSpring;
+    if(!s) return;
+
+    const maxPull=150;
+    const dx=lever.currentX-lever.startX;
+    const pullSigned = -s.dir*dx;
+    const pullPx=Math.max(0,Math.min(maxPull,pullSigned));
+    lever.pullRatio=Math.max(0,Math.min(1,pullPx/maxPull));
+    setLeverUI(true, lever.pullRatio, s);
+    markMyAction();
+  });
+
+  function releaseLever(e){
+    if(!lever.dragging) return;
+    if(lever.pointerId!==e.pointerId) return;
+    lever.dragging=false;
+
+    const s=lever.activeSpring;
+    const r=lever.pullRatio;
+    if(s && r>0 && role==="player" && isPlaying){
+      launchFromSpring(s,r);
+    }
+    lever.pullRatio=0;
+    setLeverUI(role==="player" && isPlaying && lever.enabled, 0, lever.activeSpring);
+    markMyAction();
+  }
+  pullArea.addEventListener("pointerup", releaseLever);
+  pullArea.addEventListener("pointercancel", releaseLever);
+
+  // ==========================
+  // Firebase購読
+  // ==========================
+  function subscribe(){
+    onValue(rLock,(snap)=>{
       const v=snap.val();
       if(!v){
         currentPlayerLine.textContent="誰もプレイしていません";
-        btnPlay.disabled=isPlaying;
-        if(!isPlaying) btnWait.style.display="inline-block";
+        if(!(role==="player" && isPlaying)){
+          btnPlay.disabled=false;
+          btnWait.disabled=false;
+        }
         return;
       }
       currentPlayerLine.textContent=`${v.playerName} がプレイ中`;
       if(!(role==="player" && isPlaying)){
         btnPlay.disabled=true;
-        btnWait.style.display="inline-block";
+        btnWait.disabled=false;
       }
     });
 
-    onValue(rWait, (snap)=>{
+    onValue(rWait,(snap)=>{
       const v=snap.val()||{};
       const names=Object.values(v).map(x=>x?.name).filter(Boolean);
-      if(names.length) waitLine.textContent = `待機: ${names.join(" / ")}`;
+      waitLine.textContent = names.length ? `待機: ${names.join(" / ")}` : "";
     });
 
-    onValue(rEvent, (snap)=>{
+    onValue(rEvent,(snap)=>{
       const e=snap.val();
-      if(!e || !e.type) return;
-
-      // プレイヤーはローカル音があるので二重防止
-      if(role==="player" && isPlaying) return;
-
+      if(!e?.type) return;
+      if(role==="player" && isPlaying) return; // プレイヤーはローカルで鳴らす
       if(e.type==="shot") playSound("shot");
       else if(e.type==="hit") playSound("hit");
       else if(e.type==="fail") playSound("fail");
@@ -2183,168 +1155,99 @@ bgWarn=${bgWarn.classList.contains("show")}`;
       else if(e.type==="clear") playSound("clear");
     });
 
-    onValue(rSnap, (snap)=>{
+    onValue(rSnap,(snap)=>{
       const v=snap.val();
-      if(!v) return;
-      if(role==="spectator") remoteSnapshot=v;
+      if(role==="spectator") remoteSnapshot = v || null;
     });
   }
-  subscribeRealtime();
 
-  async function sendEvent(payload){
-    await set(rEvent, payload).catch(()=>{});
-  }
+  // ==========================
+  // boot
+  // ==========================
+  async function bootCoinGame(){
+    destroyGame();
+    await coinSprite.load();
+    await loadRen();
 
-  async function tryAcquireLock(){
-    const res=await runTransaction(rLock, (cur)=>{
-      if(cur==null){
-        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
-      }
-      if(cur && cur.lastActionAt && (Date.now()-cur.lastActionAt > AFK_LIMIT_MS)){
-        return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
-      }
-      return;
-    }, {applyLocally:false});
-    return res.committed;
-  }
+    const bg = await chooseBackgroundURL();
+    if(isAdmin) bgDebug.textContent = `背景: ${bg}（mapが読めない場合 ren にフォールバック）`;
 
-  async function updateLockHeartbeat(){
-    if(role!=="player" || !isPlaying) return;
-    await update(rLock, { lastActionAt: Date.now() }).catch(()=>{});
-  }
+    const masks=buildMasks();
+    const greenComps=extractComponents(masks.green,mapW,mapH);
+    spawnPoint = greenComps.length ? greenComps[0].centroid : {x:100,y:100};
 
-  async function releaseLock(){
-    await runTransaction(rLock, (cur)=>{
-      if(cur && cur.playerId===myId) return null;
-      return;
-    }, {applyLocally:false}).catch(()=>{});
-  }
+    createEngine();
+    createRenderer(bg);
+    runner=Runner.create();
+    Render.run(render);
+    Runner.run(runner, engine);
+    resizeCanvasToFit();
+    window.addEventListener("resize", resizeCanvasToFit, {passive:true});
 
-  onDisconnect(rLock).remove().catch(()=>{});
+    addTerrainFromBlack(masks.black);
+    addSensors(extractComponents(masks.red,mapW,mapH), extractComponents(masks.blue,mapW,mapH));
+    addSpringsFromYellow(extractComponents(masks.yellow,mapW,mapH));
+    addCoinNew();
+    installEvents();
 
-  let snapInterval=null;
-  function startSnapshotWriter(){
-    stopSnapshotWriter();
-    snapInterval=setInterval(async ()=>{
-      if(role!=="player" || !isPlaying || !coin) return;
-      await set(rSnap, {
-        playerId: myId,
-        playerName: myName,
-        x: coin.position.x,
-        y: coin.position.y,
-        vx: coin.velocity.x,
-        vy: coin.velocity.y,
-        angle: coin.angle,
-        t: Date.now()
-      }).catch(()=>{});
-      await updateLockHeartbeat();
-    }, 120);
-  }
-  function stopSnapshotWriter(){
-    if(snapInterval){ clearInterval(snapInterval); snapInterval=null; }
-  }
-
-  let waitHeartbeat=null;
-  function startWaitHeartbeat(){
-    stopWaitHeartbeat();
-    waitHeartbeat=setInterval(async ()=>{
-      if(role!=="spectator") return;
-      await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-    }, 10*60*1000);
-  }
-  function stopWaitHeartbeat(){
-    if(waitHeartbeat){ clearInterval(waitHeartbeat); waitHeartbeat=null; }
-  }
-
-  // ===== play/end =====
-  btnPlay.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-
-    const ok = await tryAcquireLock();
-    if(!ok){
-      alert("他の人がプレイ中です。観戦してください。");
-      return;
-    }
-
-    role="player";
-    isPlaying=true;
-
-    btnEnd.disabled=false;
-    btnResetCoin.disabled=false;
-    btnRespawn.disabled=false;
-    btnPlay.disabled=true;
-    btnWait.style.display="none";
-
-    // 待機から外す
-    await update(rWait, {[myId]: null}).catch(()=>{});
-    stopWaitHeartbeat();
-
-    onDisconnect(rLock).remove().catch(()=>{});
-
-    lastMyActionAt=Date.now();
-    startSnapshotWriter();
-    remoteSnapshot=null;
-
-    await sendEvent({type:"start", by: myName, at: serverTimestamp()}).catch(()=>{});
-  });
-
-  async function endPlay(reason="終了"){
-    if(!(role==="player" && isPlaying)) return;
-
-    isPlaying=false;
+    // 初期は観戦
     role="spectator";
-
+    isPlaying=false;
     btnEnd.disabled=true;
     btnResetCoin.disabled=true;
     btnRespawn.disabled=true;
     btnPlay.disabled=false;
-    btnWait.style.display="inline-block";
-
-    stopSnapshotWriter();
-    await releaseLock();
+    btnWait.disabled=false;
     startWaitHeartbeat();
-
-    await sendEvent({type:"end", by: myName, reason, at: serverTimestamp()}).catch(()=>{});
   }
 
-  btnEnd.addEventListener("click", async ()=>{
+  // センサー追加
+  function addSensors(redComps, blueComps){
+    holes=[]; goals=[];
+    for(const c of redComps){
+      let r=Math.sqrt(c.area/Math.PI); r=Math.max(12,Math.min(90,r));
+      const b=Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
+      b.label="hole"; holes.push(b);
+    }
+    for(const c of blueComps){
+      let r=Math.sqrt(c.area/Math.PI); r=Math.max(14,Math.min(110,r));
+      const b=Bodies.circle(c.centroid.x,c.centroid.y,r,{isStatic:true,isSensor:true,render:{visible:false}});
+      b.label="goal"; goals.push(b);
+    }
+    World.add(engine.world, holes.concat(goals));
+  }
+
+  // ==========================
+  // UIイベント
+  // ==========================
+  btnSelectJanken.addEventListener("click", async ()=>{
     await unlockAudioOnce();
-    await endPlay("手動終了");
+    selectMsg.textContent="じゃんけんは準備中です。";
+  });
+  btnSelectCoin.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    showScreen("name");
+  });
+  btnNameBack.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    showScreen("select");
+  });
+  btnNameOk.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    myName=(nameInput.value||"").trim() || "匿名";
+    meLine.textContent=`${myName}（id:${myId.slice(0,8)}）`;
+    showScreen("coin");
+    await bootCoinGame();
   });
 
-  btnResetCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    respawnCoin();
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnRespawn.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    addCoinNew();
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnWait.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-    await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-    waitLine.textContent="待機中…";
-    startWaitHeartbeat();
-  });
-
-  // ===== admin =====
   adminEnter.addEventListener("click", async ()=>{
     await unlockAudioOnce();
-    if(adminPass.value === "1122"){
+    if(adminPass.value==="1122"){
       setAdminMode(true);
       adminMsg.textContent="運営モードON";
       adminPass.value="";
-    } else {
+      bgDebug.textContent = render?.canvas?.style?.backgroundImage ? `背景: ${render.canvas.style.backgroundImage}` : "背景: -";
+    }else{
       adminMsg.textContent="パスワードが違います";
     }
   });
@@ -2360,114 +1263,102 @@ bgWarn=${bgWarn.classList.contains("show")}`;
     await bootCoinGame();
   });
 
-  // ===== start screens =====
-  btnSelectJanken.addEventListener("click", async ()=>{
+  btnPlay.addEventListener("click", async ()=>{
     await unlockAudioOnce();
-    selectMsg.textContent = "じゃんけんゲームは準備中です（10円ゲームを選んでください）";
-  });
-  btnSelectCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("name");
-  });
-  btnNameBack.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("select");
-  });
-  btnNameOk.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    myName = (nameInput.value || "").trim() || "匿名";
-    meLine.textContent = `${myName}（id:${myId.slice(0,8)}）`;
-    showScreen("coin");
-    await bootCoinGame();
-  });
+    const ok = await (async ()=>{
+      const res = await runTransaction(rLock, (cur)=>{
+        if(cur==null){
+          return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
+        }
+        if(cur?.lastActionAt && (Date.now()-cur.lastActionAt>AFK_LIMIT_MS)){
+          return {playerId:myId, playerName:myName, startedAt:Date.now(), lastActionAt:Date.now()};
+        }
+        return;
+      }, {applyLocally:false});
+      return res.committed;
+    })();
 
-  // ===== boot =====
-  async function bootCoinGame(){
-    destroyGame();
-    await coinSprite.load();
-    await loadRen();
-
-    // map.png表示バグ修正：必ず事前にロード判定して bgUrl を決める
-    const bgUrl = await resolveBackgroundUrl();
-
-    engine = Engine.create();
-    engine.gravity.y = getNum("gravityY", 1);
-
-    render = Render.create({
-      element: elWorld,
-      engine,
-      options:{
-        width: mapW, height: mapH,
-        wireframes:false,
-        background:"#000",
-        hasBounds:false,
-        pixelRatio: window.devicePixelRatio || 1
-      }
-    });
-
-    // canvas側に確実に背景を設定
-    render.options.background = `url(${bgUrl})`;
-    render.canvas.style.backgroundImage = `url(${bgUrl})`;
-    render.canvas.style.backgroundSize = "100% 100%";
-    render.canvas.style.backgroundRepeat = "no-repeat";
-    render.canvas.style.backgroundPosition = "0 0";
-
-    runner = Runner.create();
-    Render.run(render);
-    Runner.run(runner, engine);
-
-    resizeCanvasToFit();
-    window.addEventListener("resize", resizeCanvasToFit, {passive:true});
-
-    const masks = buildMasks();
-
-    const greenComps = extractComponents(masks.green, mapW, mapH);
-    spawnPoint = greenComps.length ? greenComps[0].centroid : {x:100,y:100};
-
-    // terrain
-    addTerrainFromBlack(masks.black);
-
-    // sensors
-    addHoles(extractComponents(masks.red, mapW, mapH));
-    addGoals(extractComponents(masks.blue, mapW, mapH));
-    addSprings(extractComponents(masks.yellow, mapW, mapH));
-
-    // coin
-    addCoinNew();
-
-    // events
-    installMatterEvents();
-
-    // init
-    role="spectator";
-    isPlaying=false;
-    btnEnd.disabled=true;
-    btnResetCoin.disabled=true;
-    btnRespawn.disabled=true;
-    btnPlay.disabled=false;
-    btnWait.style.display="inline-block";
-
-    startWaitHeartbeat();
-  }
-
-  // ===== background resolver =====
-  async function resolveBackgroundUrl(){
-    try{
-      await loadImage(MAP_URL);
-      bgWarn.classList.remove("show");
-      bgWarn.textContent="";
-      return MAP_URL;
-    }catch(e){
-      bgWarn.classList.add("show");
-      bgWarn.textContent="⚠ map.png が見えません（ren.pngに切替）。ファイル名/配置/大文字小文字を確認してください。";
-      return REN_URL;
+    if(!ok){
+      alert("他の人がプレイ中です。");
+      return;
     }
-  }
 
-  // ===== 初期画面 =====
+    role="player";
+    isPlaying=true;
+    btnEnd.disabled=false;
+    btnResetCoin.disabled=false;
+    btnRespawn.disabled=false;
+    btnPlay.disabled=true;
+
+    await update(rWait,{[myId]:null}).catch(()=>{});
+    stopWaitHeartbeat();
+
+    onDisconnect(rLock).remove().catch(()=>{});
+    lastMyActionAt=Date.now();
+
+    // 観戦同期停止（自分が動かす）
+    remoteSnapshot=null;
+
+    // snapshot writer
+    if(window.__snapInterval) clearInterval(window.__snapInterval);
+    window.__snapInterval=setInterval(async ()=>{
+      if(!(role==="player" && isPlaying) || !coin) return;
+      await set(rSnap,{playerId:myId, playerName:myName, x:coin.position.x, y:coin.position.y, vx:coin.velocity.x, vy:coin.velocity.y, angle:coin.angle, t:Date.now()}).catch(()=>{});
+      await update(rLock,{lastActionAt:Date.now()}).catch(()=>{});
+    },120);
+
+    await sendEvent({type:"start", by:myName, at:serverTimestamp()}).catch(()=>{});
+  });
+
+  btnEnd.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    await (async ()=>{
+      isPlaying=false;
+      role="spectator";
+      btnEnd.disabled=true;
+      btnResetCoin.disabled=true;
+      btnRespawn.disabled=true;
+      btnPlay.disabled=false;
+
+      if(window.__snapInterval){clearInterval(window.__snapInterval); window.__snapInterval=null;}
+      await runTransaction(rLock, (cur)=> (cur?.playerId===myId ? null : cur), {applyLocally:false}).catch(()=>{});
+      startWaitHeartbeat();
+      await sendEvent({type:"end", by:myName, at:serverTimestamp()}).catch(()=>{});
+    })();
+  });
+
+  btnResetCoin.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if(!(role==="player" && isPlaying)) return;
+    respawnCoin();
+    await sendEvent({type:"spawn", by:myName, at:serverTimestamp()});
+    markMyAction();
+  });
+
+  btnRespawn.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if(!(role==="player" && isPlaying)) return;
+    addCoinNew();
+    await sendEvent({type:"spawn", by:myName, at:serverTimestamp()});
+    markMyAction();
+  });
+
+  btnWait.addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if(role==="player" && isPlaying) return;
+    await update(rWait,{[myId]:{name:myName, at:serverTimestamp()}}).catch(()=>{});
+    waitLine.textContent="待機中…";
+    startWaitHeartbeat();
+  });
+
+  // ==========================
+  // subscribe once
+  // ==========================
+  subscribe();
+
+  // start
   showScreen("select");
-  selectMsg.textContent = "10円ゲームを選ぶと開始します。";
-
+  selectMsg.textContent="10円ゲームを選んでください。";
 </script>
 </body>
 </html>
