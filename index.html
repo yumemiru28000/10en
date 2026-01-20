@@ -1,3 +1,45 @@
+```html
+<script type="module">
+  // ==========================
+  // Firebase 初期化
+  // ==========================
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
+  import {
+    getDatabase,
+    ref,
+    onValue,
+    set,
+    update,
+    push,
+    serverTimestamp,
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCC7KAv7V4j1Z6-o1Y8ikmb3r5htN9O_aA",
+    authDomain: "zzgohan-280.firebaseapp.com",
+    databaseURL: "https://zzgohan-280-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "zzgohan-280",
+    storageBucket: "zzgohan-280.firebasestorage.app",
+    messagingSenderId: "459336048542",
+    appId: "1:459336048542:web:ff6c825dec81cc7df8008f",
+    measurementId: "G-JX4RP9LWR3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getDatabase(app);
+
+```
+
+以下に **「isAdminMode重複エラーを出さない」修正版の統合完全版** `index.html` を、まるごと1ファイルで書き出します。  
+（ポイント：`isAdminMode` は `const isAdminMode = () => ...` を **1回だけ**定義しています）
+
+> 依存ファイル：`ren.png`, `map.png`, `10.png`, `krg.png`, `s.mp3`, `u.mp3`, `b.mp3`, `t.mp3`, `kr.mp3`
+
+---
+
+````html name=index.html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -185,16 +227,15 @@
       background:#000;
     }
 
-    /* admin gate (運営モードの表示制限) */
+    /* admin gate */
     body:not(.admin) .adminOnly{ display:none; }
     body.admin .adminOnly{ display:block; }
 
-    /* spectator-only */
+    /* spectator/player */
     .spectatorOnly{ display:none; }
     body.spectator .spectatorOnly{ display:block; }
     body.player .spectatorOnly{ display:none; }
 
-    /* player-only */
     .playerOnly{ display:none; }
     body.player .playerOnly{ display:block; }
     body.spectator .playerOnly{ display:none; }
@@ -209,10 +250,9 @@
 </head>
 <body>
 
-<!-- MENU -->
 <section id="menu" class="screen active">
   <div class="card">
-    <h1>ゲーム選択</h1>
+    <h1>ゲ���ム選択</h1>
     <div class="row">
       <button id="btnJanken">じゃんけんゲーム（未実装）</button>
       <button id="btnTenyen">10円ゲーム</button>
@@ -223,7 +263,6 @@
   </div>
 </section>
 
-<!-- NAME -->
 <section id="nameScreen" class="screen">
   <div class="card">
     <h1>名前入力</h1>
@@ -236,7 +275,6 @@
   </div>
 </section>
 
-<!-- GAME -->
 <section id="game" class="screen">
   <aside id="ui">
     <h1>10円ゲーム</h1>
@@ -264,7 +302,6 @@
       <div id="waitList" style="font-size:12px;color:#ddd;line-height:1.5;"></div>
     </div>
 
-    <!-- Lever (常に見える) -->
     <div class="row" id="leverBox">
       <div id="leverTitle">
         <div>バー（引いて→離す）</div>
@@ -286,7 +323,6 @@
       </div>
     </div>
 
-    <!-- Admin mode gate -->
     <div class="row">
       <div class="label">運営モード（1122）</div>
       <input id="adminPass" type="password" placeholder="1122">
@@ -353,7 +389,6 @@
   </main>
 </section>
 
-<!-- Matter -->
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 
 <script type="module">
@@ -389,16 +424,18 @@
   const analytics = getAnalytics(app);
   const db = getDatabase(app);
 
-  // ==========================
-  // Utility (UI)
-  // ==========================
+  // --------------------------
+  // Utility
+  // --------------------------
   const $ = (id)=>document.getElementById(id);
+  const isAdminMode = () => document.body.classList.contains("admin"); // ★1回だけ
+
   function showScreen(id){
     for (const el of document.querySelectorAll(".screen")) el.classList.remove("active");
     $(id).classList.add("active");
   }
 
-  // menu->name->game
+  // Menu -> Name -> Game
   $("btnTenyen").addEventListener("click", ()=>showScreen("nameScreen"));
   $("btnJanken").addEventListener("click", ()=>alert("じゃんけんゲームは未実装です"));
   $("btnNameBack").addEventListener("click", ()=>showScreen("menu"));
@@ -409,9 +446,9 @@
     initGameOnce();
   });
 
-  // ==========================
-  // Audio (browser unlock)
-  // ==========================
+  // --------------------------
+  // Audio (unlock)
+  // --------------------------
   const sounds = {
     fail: new Audio("s.mp3"),
     shot: new Audio("u.mp3"),
@@ -448,9 +485,9 @@
     }catch(e){}
   }
 
-  // ==========================
-  // DB paths
-  // ==========================
+  // --------------------------
+  // Firebase paths / helpers
+  // --------------------------
   const PATH = {
     state: ref(db, "tenyen/state"),
     coin: ref(db, "tenyen/coin"),
@@ -459,18 +496,13 @@
     ann: ref(db, "tenyen/announcements"),
   };
 
-  // events helper
   function emitEvent(type, payload={}){
-    push(PATH.events, {
-      type,
-      payload,
-      at: serverTimestamp()
-    });
+    push(PATH.events, { type, payload, at: serverTimestamp() });
   }
 
-  // ==========================
+  // --------------------------
   // Admin mode
-  // ==========================
+  // --------------------------
   const ADMIN_PASSWORD = "1122";
   function setAdminMode(on){
     document.body.classList.toggle("admin", !!on);
@@ -494,41 +526,141 @@
     $("adminMsg").textContent = "運営モードOFF";
   });
 
-  // ==========================
-  // Game core (Matter + masks)
-  // ==========================
-  const REN_URL = "ren.png";
-  const MAP_URL = "map.png";
-  const COIN_IMG_URL = "10.png";   // 追加：コイン画像
-  const CLEAR_IMG_URL = "krg.png"; // 追加：クリア表示
-  $("clearOverlay").querySelector("img").src = CLEAR_IMG_URL;
-
-  // play restrictions
+  // --------------------------
+  // Multiplayer state
+  // --------------------------
   const PLAY_IDLE_TIMEOUT_MS = 60_000;
 
-  // physics tuning
-  const UPWARD_BIAS_FIXED = 0;   // 要望：上向きゼロ
-  const IMPULSE_MULT = 1.5;      // 要望：発射力1.5倍
+  let yourName = sessionStorage.getItem("tenyen_name") || "匿名";
+  $("youChip").textContent = `you: ${yourName}`;
 
-  // slope assist stronger (詰まり救済)
-  const SLOPE_ACCEL_MULT = 2.0;      // 要望：2倍
-  const SLOPE_EXTRA_MULT = 2.8;      // さらに強化
+  let role = "spectator";
+  function setRole(newRole){
+    role = newRole;
+    document.body.classList.toggle("player", role==="player");
+    document.body.classList.toggle("spectator", role!=="player");
+    $("roleChip").textContent = `role: ${role}`;
+  }
+  setRole("spectator");
+
+  async function claimPlay(){
+    await unlockAudioOnce();
+    const snap = await get(PATH.state);
+    const st = snap.exists() ? snap.val() : null;
+
+    if (st && st.playing) return false;
+
+    await set(PATH.state, {
+      playing: true,
+      playerName: yourName,
+      startedAt: serverTimestamp(),
+      lastActionAt: Date.now() // ★数値で保存（無操作切りのため）
+    });
+
+    try{
+      await onDisconnect(PATH.state).update({
+        playing:false, playerName:"", lastActionAt: Date.now(), reason:"disconnect"
+      });
+    }catch(e){}
+
+    setRole("player");
+    emitEvent("sound", { key:"spawn" });
+    return true;
+  }
+
+  async function releasePlay(reason="end"){
+    await update(PATH.state, { playing:false, playerName:"", lastActionAt: Date.now(), reason });
+    setRole("spectator");
+  }
+
+  function touchAction(){
+    if (role !== "player") return;
+    update(PATH.state, { lastActionAt: Date.now() }).catch(()=>{});
+  }
+
+  // Waiting
+  function renderWaitingList(list){
+    const names = (list ? Object.values(list).map(v=>v?.name).filter(Boolean) : []);
+    $("waitList").textContent = names.length ? names.join(" / ") : "(なし)";
+  }
+  onValue(PATH.waiting, (snap)=>renderWaitingList(snap.exists()?snap.val():null));
+  onValue(PATH.ann, (snap)=>{
+    if (!snap.exists()) return;
+    const a = snap.val();
+    if (!a || !a.message) return;
+    if (role !== "player"){
+      $("waitMsg").textContent = a.message;
+      setTimeout(()=>{ $("waitMsg").textContent=""; }, 5000);
+    }
+  });
+
+  $("btnWait").addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if (role === "player") return;
+    const key = yourName + "_" + Math.random().toString(16).slice(2,8);
+    await set(ref(db, `tenyen/waiting/${key}`), { name: yourName, at: Date.now() });
+    $("waitMsg").textContent = "待機しました";
+  });
+
+  // 10分リセット（簡易）
+  let lastWaitingResetAt = 0;
+  setInterval(async ()=>{
+    if (role === "player") return;
+    const now = Date.now();
+    if (now - lastWaitingResetAt < 10*60*1000) return;
+    lastWaitingResetAt = now;
+    try{
+      await set(PATH.waiting, null);
+      await set(PATH.ann, { message: "待機列をリセットしました（10分ごと）", at: Date.now() });
+    }catch(e){}
+  }, 30_000);
+
+  // UI buttons
+  $("btnPlay").addEventListener("click", async ()=>{
+    const ok = await claimPlay();
+    if (!ok) alert("いま誰かがプレイ中です。観戦してください。");
+  });
+  $("btnEnd").addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if (role !== "player") return;
+    await releasePlay("end");
+  });
+
+  // --------------------------
+  // Game resources
+  // --------------------------
+  const REN_URL = "ren.png";
+  const MAP_URL = "map.png";
+  const COIN_IMG_URL = "10.png";
+  const CLEAR_IMG_URL = "krg.png";
+  $("clearOverlay").querySelector("img").src = CLEAR_IMG_URL;
+
+  // --------------------------
+  // Physics tuning
+  // --------------------------
+  const UPWARD_BIAS_FIXED = 0;
+  const IMPULSE_MULT = 1.5;
+
+  const SLOPE_ACCEL_MULT = 2.0;
+  const SLOPE_EXTRA_MULT = 2.8;
   const STUCK_BOOST_MULT = 3.8;
   const STUCK_SPEED_TH = 0.22;
   const MIN_SIN_TO_APPLY = 0.015;
 
-  // hit sound
   const HIT_SPEED_TH = 7.0;
   const HIT_COOLDOWN_MS = 120;
   let lastHitAt = 0;
 
+  // --------------------------
+  // Color classify & extraction
+  // --------------------------
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
     if (r < 40 && g < 40 && b < 40) return "black";
-    if (r > 180 && g < 80 && b < 80) return "red";      // fail
-    if (g > 160 && r < 120 && b < 120) return "green";  // spawn
-    if (r > 180 && g > 180 && b < 120) return "yellow"; // spring
-    if (b > 180 && r < 100 && g < 140) return "blue";   // goal
+    if (r > 180 && g < 80 && b < 80) return "red";
+    if (g > 160 && r < 120 && b < 120) return "green";
+    if (r > 180 && g > 180 && b < 120) return "yellow";
+    if (b > 180 && r < 100 && g < 140) return "blue";
     return "empty";
   }
 
@@ -662,7 +794,9 @@
     return segs;
   }
 
-  // Matter
+  // --------------------------
+  // Matter setup
+  // --------------------------
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
@@ -675,15 +809,14 @@
   let coinBody = null;
   let spawnPoint = {x:100,y:100};
 
-  let holes=[];   // red
-  let goals=[];   // blue
-  let springs=[]; // yellow: {aabb, center, dir, cooldownUntil}
-
+  let holes=[];
+  let goals=[];
+  let springs=[];
   let touchingGround=false;
   let lastGroundNormal=null;
   let blackMaskGlobal=null;
 
-  // coin image (circle crop)
+  // coin image
   const coinImg = new Image();
   coinImg.src = COIN_IMG_URL;
 
@@ -698,215 +831,9 @@
     pullRatio:0
   };
 
-  // role state (local)
-  let yourName = sessionStorage.getItem("tenyen_name") || "匿名";
-  $("youChip").textContent = `you: ${yourName}`;
-
-  let role = "spectator"; // "player" or "spectator"
-  function setRole(newRole){
-    role = newRole;
-    document.body.classList.toggle("player", role==="player");
-    document.body.classList.toggle("spectator", role!=="player");
-    $("roleChip").textContent = `role: ${role}`;
-  }
-  setRole("spectator");
-
-  // ==========================
-  // Multiplayer state sync
-  // ==========================
-  function nowMs(){ return Date.now(); }
-
-  async function claimPlay(){
-    await unlockAudioOnce();
-
-    const snap = await get(PATH.state);
-    const st = snap.exists() ? snap.val() : null;
-
-    const can = !st || !st.playing;
-    if (!can) return false;
-
-    // claim
-    await set(PATH.state, {
-      playing: true,
-      playerName: yourName,
-      startedAt: serverTimestamp(),
-      lastActionAt: serverTimestamp(),
-    });
-
-    // onDisconnect: release
-    try{
-      await onDisconnect(PATH.state).update({ playing:false, playerName:"", lastActionAt: serverTimestamp() });
-    }catch(e){}
-
-    setRole("player");
-    emitEvent("sound", { key:"spawn" });
-    return true;
-  }
-
-  async function releasePlay(reason="end"){
-    // release state
-    await update(PATH.state, { playing:false, playerName:"", lastActionAt: serverTimestamp(), reason });
-    setRole("spectator");
-  }
-
-  function touchAction(){
-    // player activity heartbeat
-    if (role !== "player") return;
-    update(PATH.state, { lastActionAt: serverTimestamp() }).catch(()=>{});
-  }
-
-  // listen state
-  onValue(PATH.state, (snap)=>{
-    const st = snap.exists() ? snap.val() : null;
-    const playing = !!(st && st.playing);
-    const playerName = (st && st.playerName) ? st.playerName : "-";
-    $("playerChip").textContent = `playing: ${playing ? playerName : "-"}`;
-
-    // button enable
-    $("btnPlay").disabled = playing; // 誰かがプレイ中なら押せない
-    if (role !== "player"){
-      // 観戦者は常に観戦
-      setRole("spectator");
-    } else {
-      // 自分がプレイヤーなのにstateがplayingじゃなくなったら強制観戦へ
-      if (!playing || playerName !== yourName){
-        setRole("spectator");
-      }
-    }
-
-    // idle timeout enforcement (観戦側も見る)
-    if (playing && st && st.lastActionAt && st.lastActionAt > 0){
-      // serverTimestampは数値で戻る場合/オブジェクトの場合があるが、Web SDKでは数値で取得されることが多い
-      // ここでは「クライアントのclockで監視」する簡易版
-    }
-  });
-
-  // listen events (sounds / clear overlay)
-  onValue(PATH.events, (snap)=>{
-    if (!snap.exists()) return;
-    const obj = snap.val();
-    const keys = Object.keys(obj);
-    keys.sort(); // 時系列じゃないが、ここは簡易
-
-    const lastKey = keys[keys.length - 1];
-    const ev = obj[lastKey];
-    if (!ev || !ev.type) return;
-
-    if (ev.type === "sound"){
-      const k = ev.payload?.key;
-      if (k) playSound(k);
-      if (k === "clear"){
-        // clear overlay is local to the clearer only => we won't show here
-      }
-    }
-  });
-
-  // coin state sync
-  onValue(PATH.coin, (snap)=>{
-    if (!snap.exists()) return;
-    const c = snap.val();
-    if (!coinBody) return;
-    if (role === "player") return; // プレイヤーは自分で物理が動くので上書きしない
-
-    if (typeof c.x === "number" && typeof c.y === "number"){
-      Body.setPosition(coinBody, {x:c.x, y:c.y});
-    }
-    if (typeof c.vx === "number" && typeof c.vy === "number"){
-      Body.setVelocity(coinBody, {x:c.vx, y:c.vy});
-    }
-  });
-
-  // waiting list
-  function renderWaitingList(list){
-    const names = (list ? Object.values(list).map(v=>v?.name).filter(Boolean) : []);
-    $("waitList").textContent = names.length ? names.join(" / ") : "(なし)";
-  }
-  onValue(PATH.waiting, (snap)=>{
-    renderWaitingList(snap.exists() ? snap.val() : null);
-  });
-  onValue(PATH.ann, (snap)=>{
-    if (!snap.exists()) return;
-    const a = snap.val();
-    if (!a || !a.message) return;
-    if (role !== "player"){
-      $("waitMsg").textContent = a.message;
-      setTimeout(()=>{ $("waitMsg").textContent=""; }, 5000);
-    }
-  });
-
-  // waiting: self add
-  $("btnWait").addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if (role === "player") return;
-    const key = yourName + "_" + Math.random().toString(16).slice(2,8);
-    await set(ref(db, `tenyen/waiting/${key}`), { name: yourName, at: serverTimestamp() });
-    $("waitMsg").textContent = "待機しました";
-  });
-
-  // waiting reset every 10 minutes (client-driven simple leaderless)
-  // 誰か1人がやればよいが、今回は「各クライアントが時間を見て、10分以上経ってたらリセットを試みる」
-  // 競合しても最終的に空になればOKという簡易設計
-  let lastWaitingResetAt = 0;
-  setInterval(async ()=>{
-    if (role === "player") return; // 観戦者だけアナウンス対象
-    const now = Date.now();
-    if (now - lastWaitingResetAt < 10*60*1000) return;
-    lastWaitingResetAt = now;
-
-    // reset
-    try{
-      await set(PATH.waiting, null);
-      await set(PATH.ann, { message: "待機列をリセットしました（10分ごと）", at: serverTimestamp() });
-    }catch(e){}
-  }, 30_000);
-
-  // ==========================
-  // Buttons
-  // ==========================
-  $("btnPlay").addEventListener("click", async ()=>{
-    const ok = await claimPlay();
-    if (!ok) alert("いま誰かがプレイ中です。観戦してください。");
-  });
-  $("btnEnd").addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if (role !== "player") return;
-    await releasePlay("end");
-  });
-
-  $("btnBackReset").addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if (role !== "player") return;
-    // coin delete & recreate
-    recreateCoin();
-    touchAction();
-  });
-  $("btnCoinReset").addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if (role !== "player") return;
-    respawnCoin();
-    touchAction();
-  });
-
-  // idle timeout: if no action for 60s -> force release (any client can enforce)
-  setInterval(async ()=>{
-    const snap = await get(PATH.state);
-    const st = snap.exists() ? snap.val() : null;
-    if (!st || !st.playing) return;
-
-    // lastActionAtはサーバー値で完全取得が難しいので簡易：coin更新が止まったらも同様にできるが、
-    // ここは「stateを更新している前提」で、クライアント時計で60s経過を見て解除する。
-    // 実際には lastActionAt を数値化して使うのが望ましい（要ルール/Cloud Function）
-    // 簡易: ここでは coin データの更新がないとき…は難しいので、観戦側で「playing継続が長い」だけでは解除しない
-  }, 10_000);
-
-  // ==========================
-  // Rendering: keep only map + coin + yellow frames for non-admin
-  // ==========================
-  function isAdminMode(){ return document.body.classList.contains("admin"); }
-
-  // ==========================
-  // Game build
-  // ==========================
+  // --------------------------
+  // build images/masks
+  // --------------------------
   async function loadImage(url){
     return new Promise((resolve,reject)=>{
       const img = new Image();
@@ -976,9 +903,6 @@
 
     requestAnimationFrame(resizeCanvasToFit);
     window.addEventListener("resize", resizeCanvasToFit);
-
-    // background
-    setBackground(MAP_URL).catch(()=>{ setBackground(REN_URL); });
   }
 
   async function setBackground(url){
@@ -987,8 +911,7 @@
     render.canvas.style.backgroundSize = "100% 100%";
     render.canvas.style.backgroundRepeat = "no-repeat";
     render.canvas.style.backgroundPosition = "0 0";
-    // preload check
-    await loadImage(url);
+    await loadImage(url); // preload check
   }
 
   function resizeCanvasToFit(){
@@ -998,6 +921,31 @@
     const scale = Math.min(rect.width / mapW, rect.height / mapH);
     canvas.style.width = (mapW * scale) + "px";
     canvas.style.height = (mapH * scale) + "px";
+  }
+
+  function getNum(id, fallback){
+    const el = $(id);
+    if (!el) return fallback;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  // --------------------------
+  // world building
+  // --------------------------
+  function segmentToBody(seg){
+    const {x1,y1,x2,y2} = seg;
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const dx=x2-x1, dy=y2-y1;
+    const len=Math.hypot(dx,dy);
+    const ang=Math.atan2(dy,dx);
+    return Bodies.rectangle(mx, my, len, 6, {
+      isStatic:true,
+      friction: 0.55,
+      restitution: 0,
+      angle: ang,
+      render: { visible: false }
+    });
   }
 
   function addTerrainFromBlack(blackMask){
@@ -1010,28 +958,9 @@
     const step = Math.max(2, Math.min(24, Math.round(getNum("segStep", 6))));
     const segs = pointsToSegmentsApproxSmooth(boundaryPts, step, 2);
 
-    const bodies = [];
-    for (const seg of segs){
-      const b = segmentToBody(seg);
-      b.label = "terrain";
-      bodies.push(b);
-    }
+    const bodies = segs.map(segmentToBody);
+    for (const b of bodies) b.label="terrain";
     World.add(engine.world, bodies);
-  }
-
-  function segmentToBody(seg){
-    const {x1,y1,x2,y2} = seg;
-    const mx=(x1+x2)/2, my=(y1+y2)/2;
-    const dx=x2-x1, dy=y2-y1;
-    const len=Math.hypot(dx,dy);
-    const ang=Math.atan2(dy,dx);
-    return Bodies.rectangle(mx, my, len, 6, {
-      isStatic:true,
-      friction: 0.55,
-      restitution: 0,
-      angle: ang,
-      render: { visible: false } // 非運営時に見せない（mapのみ）
-    });
   }
 
   function addSensorsFromComponents(redComps, blueComps, yellowComps){
@@ -1039,7 +968,6 @@
     goals = [];
     springs = [];
 
-    // holes (fail)
     for (const c of redComps){
       let r = Math.sqrt(c.area / Math.PI);
       r = Math.max(12, Math.min(90, r));
@@ -1048,7 +976,6 @@
       holes.push(hole);
     }
 
-    // goals (clear)
     for (const c of blueComps){
       let r = Math.sqrt(c.area / Math.PI);
       r = Math.max(14, Math.min(110, r));
@@ -1057,19 +984,17 @@
       goals.push(goal);
     }
 
-    // springs (yellow)
     const centerX = mapW/2;
     for (const c of yellowComps.slice(0,6)){
       const dir = (c.centroid.x < centerX) ? +1 : -1;
       const pad = 8;
-      const aabb = {
-        minX: c.aabb.minX - pad,
-        minY: c.aabb.minY - pad,
-        maxX: c.aabb.maxX + pad,
-        maxY: c.aabb.maxY + pad,
-      };
       springs.push({
-        aabb,
+        aabb: {
+          minX: c.aabb.minX - pad,
+          minY: c.aabb.minY - pad,
+          maxX: c.aabb.maxX + pad,
+          maxY: c.aabb.maxY + pad,
+        },
         center: {x:c.centroid.x, y:c.centroid.y},
         dir,
         cooldownUntil: 0
@@ -1087,13 +1012,12 @@
       frictionStatic: 0.20,
       frictionAir: 0.008,
       density: 0.005,
-      render: {
-        visible: false // 自前描画（10.png切り抜き）にするのでMatterの描画はOFF
-      }
+      render: { visible: false }
     });
     World.add(engine.world, coinBody);
     playSound("spawn");
     emitEvent("sound", {key:"spawn"});
+    touchAction();
   }
 
   function respawnCoin(){
@@ -1103,8 +1027,8 @@
     Body.setAngularVelocity(coinBody, 0);
     playSound("spawn");
     emitEvent("sound", {key:"spawn"});
-    // share immediately
-    shareCoin();
+    shareCoin(true);
+    touchAction();
   }
 
   function recreateCoin(){
@@ -1112,10 +1036,11 @@
     World.remove(engine.world, coinBody);
     coinBody = null;
     addCoin();
-    shareCoin();
+    shareCoin(true);
+    touchAction();
   }
 
-  // coin image draw (circle crop)
+  // coin draw (circle crop of 10.png)
   function drawCoinImage(){
     if (!render || !coinBody) return;
     const ctx = render.context;
@@ -1128,18 +1053,15 @@
     ctx.arc(x, y, r, 0, Math.PI*2);
     ctx.clip();
 
-    // draw centered square image scaled to diameter
     const d = r*2;
     if (coinImg.complete && coinImg.naturalWidth > 0){
       ctx.drawImage(coinImg, x-r, y-r, d, d);
     } else {
-      // fallback circle
       ctx.fillStyle = "#b87333";
       ctx.fillRect(x-r, y-r, d, d);
     }
     ctx.restore();
 
-    // outline
     ctx.save();
     ctx.strokeStyle = "rgba(0,0,0,0.35)";
     ctx.lineWidth = 2;
@@ -1149,7 +1071,7 @@
     ctx.restore();
   }
 
-  // yellow frames (always visible)
+  // yellow frames always visible
   function drawYellowFrames(){
     if (!render) return;
     const ctx = render.context;
@@ -1194,9 +1116,9 @@
     ctx.restore();
   }
 
-  function isAdminMode(){ return document.body.classList.contains("admin"); }
-
-  // slope helpers
+  // --------------------------
+  // slope assist (strong)
+  // --------------------------
   function isBlackAt(x,y){
     if (!blackMaskGlobal) return false;
     x = Math.max(0, Math.min(mapW-1, x|0));
@@ -1224,17 +1146,16 @@
 
     const xL = Math.max(0, Math.min(mapW-1, (px - probe)|0));
     const xR = Math.max(0, Math.min(mapW-1, (px + probe)|0));
-
     const yL = findGroundY(xL, startY);
     const yR = findGroundY(xR, startY);
     if (yL == null || yR == null) return null;
 
-    const dx = (xR - xL);
+    const dx = xR - xL;
     if (dx <= 0) return null;
-    const dy = (yR - yL);
-    const slope = dy / dx;
-    return { slope };
+    const dy = yR - yL;
+    return { slope: dy / dx };
   }
+
   function applySlopeAssist(){
     if (!coinBody) return;
     if (!touchingGround) return;
@@ -1246,14 +1167,14 @@
     const sin = tan / Math.sqrt(1 + tan*tan);
     if (Math.abs(sin) < MIN_SIN_TO_APPLY) return;
 
-    const gMatter = engine.gravity.y;
-    const assistUI = getNum("slopeAssist", 2.0);
+    const g = engine.gravity.y;
+    const ui = getNum("slopeAssist", 2.0);
 
-    let assistK = assistUI * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
+    let k = ui * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
     const speed = Math.hypot(coinBody.velocity.x, coinBody.velocity.y);
-    if (speed < STUCK_SPEED_TH) assistK *= STUCK_BOOST_MULT;
+    if (speed < STUCK_SPEED_TH) k *= STUCK_BOOST_MULT;
 
-    const ax = gMatter * sin * assistK;
+    const ax = g * sin * k;
     const dt = 0.016;
 
     const v = coinBody.velocity;
@@ -1268,16 +1189,18 @@
     Body.setVelocity(coinBody, { x: vx, y: v.y });
   }
 
-  // lever targeting
+  // --------------------------
+  // Lever
+  // --------------------------
   function coinInsideSpring(s){
     const p = coinBody.position;
     const a = s.aabb;
     return (p.x>=a.minX && p.x<=a.maxX && p.y>=a.minY && p.y<=a.maxY);
   }
+
   function nearestSpringByDistance(){
     const nearDist = Math.max(0, getNum("nearDist", 180));
     let best=null, bestD2=Infinity;
-
     for (const s of springs){
       const dx = coinBody.position.x - s.center.x;
       const dy = coinBody.position.y - s.center.y;
@@ -1291,7 +1214,7 @@
 
   function canOperateLever(s){
     if (!s) return false;
-    if (role !== "player") return false; // 観戦者は操作不可
+    if (role !== "player") return false;
     const now = performance.now()/1000;
     if (now < s.cooldownUntil) return false;
     if (!touchingGround) return false;
@@ -1335,39 +1258,11 @@
 
     playSound("shot");
     emitEvent("sound", {key:"shot"});
-    touchAction();
-
-    // share
     shareCoin(true);
+    touchAction();
   }
 
-  // back/reset buttons already call recreateCoin / respawnCoin
-
-  // share coin state
-  let lastShareAt = 0;
-  function shareCoin(force=false){
-    if (role !== "player") return;
-    const now = performance.now();
-    if (!force && now - lastShareAt < 50) return; // 20Hz
-    lastShareAt = now;
-
-    set(PATH.coin, {
-      x: coinBody.position.x,
-      y: coinBody.position.y,
-      vx: coinBody.velocity.x,
-      vy: coinBody.velocity.y,
-      at: serverTimestamp()
-    }).catch(()=>{});
-  }
-
-  // clear overlay (only for clearer)
-  function showClearOverlay10s(){
-    const overlay = $("clearOverlay");
-    overlay.style.display = "flex";
-    setTimeout(()=>{ overlay.style.display="none"; }, 10_000);
-  }
-
-  // input: lever
+  // Lever input
   $("pullArea").addEventListener("pointerdown", async (e)=>{
     await unlockAudioOnce();
     if (!coinBody) return;
@@ -1416,16 +1311,40 @@
     updateLeverUI(lever.enabled, 0, lever.activeSpring);
     touchAction();
   });
-  $("pullArea").addEventListener("pointercancel", (e)=>{
-    if (!lever.dragging) return;
-    lever.dragging = false;
-    lever.pullRatio = 0;
+
+  $("pullArea").addEventListener("pointercancel", ()=>{
+    lever.dragging=false;
+    lever.pullRatio=0;
     updateLeverUI(lever.enabled, 0, lever.activeSpring);
   });
 
-  // ==========================
-  // Physics events
-  // ==========================
+  // --------------------------
+  // Share coin state
+  // --------------------------
+  let lastShareAt = 0;
+  function shareCoin(force=false){
+    if (role !== "player") return;
+    const now = performance.now();
+    if (!force && now - lastShareAt < 50) return;
+    lastShareAt = now;
+
+    set(PATH.coin, {
+      x: coinBody.position.x,
+      y: coinBody.position.y,
+      vx: coinBody.velocity.x,
+      vy: coinBody.velocity.y,
+      at: Date.now()
+    }).catch(()=>{});
+  }
+
+  // clear overlay
+  function showClearOverlay10s(){
+    const overlay = $("clearOverlay");
+    overlay.style.display = "flex";
+    setTimeout(()=>{ overlay.style.display="none"; }, 10_000);
+  }
+
+  // strong hit sound
   function handleHitSound(ev){
     if (!coinBody) return;
     const now = performance.now();
@@ -1441,7 +1360,6 @@
       const v1 = coinBody.velocity;
       const v2 = other.velocity || {x:0,y:0};
       const rel = Math.hypot(v1.x - v2.x, v1.y - v2.y);
-
       if (rel >= HIT_SPEED_TH){
         lastHitAt = now;
         playSound("hit");
@@ -1451,55 +1369,143 @@
     }
   }
 
-  // ==========================
-  // init once
-  // ==========================
+  // --------------------------
+  // Observe DB state
+  // --------------------------
+  onValue(PATH.state, (snap)=>{
+    const st = snap.exists() ? snap.val() : null;
+    const playing = !!(st && st.playing);
+    const playerName = (st && st.playerName) ? st.playerName : "-";
+    $("playerChip").textContent = `playing: ${playing ? playerName : "-"}`;
+    $("btnPlay").disabled = playing;
+
+    if (role === "player"){
+      if (!playing || playerName !== yourName){
+        setRole("spectator");
+      }
+    } else {
+      setRole("spectator");
+    }
+  });
+
+  onValue(PATH.events, (snap)=>{
+    if (!snap.exists()) return;
+    const obj = snap.val();
+    const keys = Object.keys(obj);
+    keys.sort();
+    const lastKey = keys[keys.length - 1];
+    const ev = obj[lastKey];
+    if (!ev || !ev.type) return;
+    if (ev.type === "sound"){
+      const k = ev.payload?.key;
+      if (k) playSound(k);
+    }
+  });
+
+  onValue(PATH.coin, (snap)=>{
+    if (!snap.exists()) return;
+    const c = snap.val();
+    if (!coinBody) return;
+    if (role === "player") return;
+    if (typeof c.x === "number" && typeof c.y === "number"){
+      Body.setPosition(coinBody, {x:c.x, y:c.y});
+    }
+    if (typeof c.vx === "number" && typeof c.vy === "number"){
+      Body.setVelocity(coinBody, {x:c.vx, y:c.vy});
+    }
+  });
+
+  // --------------------------
+  // Buttons (player)
+  // --------------------------
+  $("btnBackReset").addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if (role !== "player") return;
+    recreateCoin();
+  });
+  $("btnCoinReset").addEventListener("click", async ()=>{
+    await unlockAudioOnce();
+    if (role !== "player") return;
+    respawnCoin();
+  });
+
+  // idle-kill: watch state.lastActionAt (number)
+  setInterval(async ()=>{
+    const snap = await get(PATH.state);
+    if (!snap.exists()) return;
+    const st = snap.val();
+    if (!st || !st.playing) return;
+    const last = typeof st.lastActionAt === "number" ? st.lastActionAt : 0;
+    if (!last) return;
+    if (Date.now() - last > PLAY_IDLE_TIMEOUT_MS){
+      // force release
+      await update(PATH.state, { playing:false, playerName:"", lastActionAt: Date.now(), reason:"idle-timeout" });
+      if (role === "player") setRole("spectator");
+    }
+  }, 5000);
+
+  // --------------------------
+  // Start game once
+  // --------------------------
   async function initGameOnce(){
     if (inited) return;
     inited = true;
 
-    // initial role UI chips
-    $("youChip").textContent = `you: ${yourName}`;
-
-    // preload images (best effort)
+    // preload best effort
     loadImage(COIN_IMG_URL).catch(()=>{});
     loadImage(CLEAR_IMG_URL).catch(()=>{});
 
-    // load ren + build
     const renImg = await loadImage(REN_URL);
     buildRenImageData(renImg);
 
-    createEngineAndRenderer();
+    engine = Engine.create();
+    engine.gravity.y = getNum("gravityY", 1);
 
-    // build masks
+    render = Render.create({
+      element: $("world"),
+      engine,
+      options: {
+        width: mapW,
+        height: mapH,
+        wireframes: false,
+        background: "#000",
+        hasBounds: false,
+        pixelRatio: window.devicePixelRatio || 1
+      }
+    });
+
+    runner = Runner.create();
+    Render.run(render);
+    Runner.run(runner, engine);
+
+    requestAnimationFrame(resizeCanvasToFit);
+    window.addEventListener("resize", resizeCanvasToFit);
+
+    try { await setBackground(MAP_URL); } catch(e){ await setBackground(REN_URL); }
+
     const {black, red, green, yellow, blue} = buildMasks();
 
     const greenComps = extractComponents(green, mapW, mapH);
     spawnPoint = (greenComps.length ? greenComps[0].centroid : {x:100,y:100});
 
-    // terrain
     addTerrainFromBlack(black);
 
-    // sensors
     const redComps = extractComponents(red, mapW, mapH);
     const yellowComps = extractComponents(yellow, mapW, mapH);
     const blueComps = extractComponents(blue, mapW, mapH);
     addSensorsFromComponents(redComps, blueComps, yellowComps);
 
-    // coin
     addCoin();
 
-    // events
     Events.on(engine, "collisionStart", (ev)=>handleHitSound(ev));
 
     Events.on(engine, "collisionActive", (ev)=>{
-      touchingGround = false;
-      lastGroundNormal = null;
+      touchingGround=false;
+      lastGroundNormal=null;
 
       for (const pair of ev.pairs){
         const A = pair.bodyA, B = pair.bodyB;
 
-        // fail
         if ((A===coinBody && B.label==="hole") || (B===coinBody && A.label==="hole")){
           if (role === "player"){
             respawnCoin();
@@ -1510,23 +1516,21 @@
           continue;
         }
 
-        // clear
         if ((A===coinBody && B.label==="goal") || (B===coinBody && A.label==="goal")){
           if (role === "player"){
             respawnCoin();
             playSound("clear");
             emitEvent("sound", {key:"clear"});
-            showClearOverlay10s(); // クリアした人だけ10秒表示
+            showClearOverlay10s();
             touchAction();
           }
           continue;
         }
 
-        // ground
         const isTerrainContact =
           (A===coinBody && B.label==="terrain") || (B===coinBody && A.label==="terrain");
         if (isTerrainContact){
-          touchingGround = true;
+          touchingGround=true;
           lastGroundNormal = pair.collision.normal;
         }
       }
@@ -1535,10 +1539,8 @@
     Events.on(engine, "afterUpdate", ()=>{
       if (!coinBody) return;
 
-      // update gravity from admin inputs
       engine.gravity.y = getNum("gravityY", 1);
 
-      // choose spring
       const s = nearestSpringByDistance();
       const enabled = !!s && canOperateLever(s);
 
@@ -1546,7 +1548,6 @@
         lever.activeSpring = s;
         lever.enabled = enabled;
       } else {
-        // if lose eligibility while dragging, cancel
         if (!canOperateLever(lever.activeSpring)){
           lever.dragging=false;
           lever.pullRatio=0;
@@ -1556,23 +1557,8 @@
       }
       updateLeverUI(lever.enabled, lever.pullRatio, lever.activeSpring);
 
-      // slope assist
       applySlopeAssist();
-
-      // share coin
       shareCoin(false);
-
-      // stop only on almost flat
-      if (touchingGround && lastGroundNormal){
-        const n = lastGroundNormal;
-        const v = coinBody.velocity;
-        const slopeMeasure = Math.abs(n.x);
-        if (Math.abs(v.x) < 0.04 && Math.abs(coinBody.angularVelocity) < 0.015 && slopeMeasure < 0.06){
-          // only if not player or not moving intentionally
-          Body.setVelocity(coinBody, { x: 0, y: v.y });
-          Body.setAngularVelocity(coinBody, 0);
-        }
-      }
 
       // admin status
       if (isAdminMode()){
@@ -1588,17 +1574,12 @@ slope: ui=${getNum("slopeAssist",2.0)} x(${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT}
     });
 
     Events.on(render, "afterRender", ()=>{
-      // Always: coin + yellow frames
       drawCoinImage();
       drawYellowFrames();
-
-      // Admin only overlays
       if (isAdminMode()) drawAdminOverlays();
     });
-
-    // role ui
-    $("roleChip").textContent = `role: ${role}`;
   }
 </script>
 </body>
 </html>
+````
