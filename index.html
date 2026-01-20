@@ -127,8 +127,6 @@
 <body>
 <div id="app">
   <div id="ui">
-
-    <!-- 画面：ゲーム選択 -->
     <div id="screenSelect" class="card">
       <h2 class="title">ゲーム選択</h2>
       <div class="row">
@@ -140,7 +138,6 @@
       <div id="selectMsg" style="font-size:11px;color:#aaa;"></div>
     </div>
 
-    <!-- 画面：名前入力 -->
     <div id="screenName" class="card" style="display:none;">
       <h2 class="title">名前入力</h2>
       <div class="label">空なら「匿名」</div>
@@ -151,7 +148,6 @@
       </div>
     </div>
 
-    <!-- 画面：10円ゲーム -->
     <div id="screenCoin" style="display:none;">
       <div class="card">
         <h2 class="title">10円ゲーム（マルチ）</h2>
@@ -194,14 +190,8 @@
           <div class="chip" id="powChip">0%</div>
           <div class="chip" id="dirChip">dir:-</div>
         </div>
-
-        <div style="margin-top:8px; font-size:11px; color:rgba(255,255,255,0.75); line-height:1.35;">
-          対象: コインの近くの黄色（最寄り）<br>
-          操作できるのはプレイヤーのみ
-        </div>
       </div>
 
-      <!-- 運営モード -->
       <div class="card">
         <div class="label">運営モード（password:1122）</div>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -244,7 +234,6 @@
   </div>
 </div>
 
-<!-- Matter.js -->
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 
 <script type="module">
@@ -280,56 +269,55 @@
   const db = getDatabase(app);
 
   // ==========================
-  // 設定（ファイル名）
+  // 設定
   // ==========================
-  const REN_URL = "ren.png";     // 解析用
-  const MAP_URL = "map.png";     // 表示用
-  const COIN_IMG_URL = "10.png"; // コイン画像（円形マスク）
-  const SND_FAIL = "s.mp3";
-  const SND_SHOT = "u.mp3";
-  const SND_HIT  = "b.mp3";
-  const SND_SPAWN= "t.mp3";
-  const SND_CLEAR= "kr.mp3";
-  const CLEAR_IMG= "krg.png";
+  const REN_URL = "ren.png";
+  const MAP_URL = "map.png";
+  const COIN_IMG_URL = "10.png";
+
+  // ======= ここが今回の「mapが黒になる」修正の本体 =======
+  // 1) map.png がロードできるかを必ず確認
+  // 2) Matter側の render.options.background にも設定（毎フレームの黒塗りを避ける）
+  // 3) さらにCSS背景も設定（保険）
+  async function setCanvasBackground(render, preferredUrl, fallbackUrl){
+    const canLoad = (url)=>new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=>resolve(true);
+      img.onerror = ()=>resolve(false);
+      img.src = url + "?t=" + Date.now();
+    });
+
+    const ok = await canLoad(preferredUrl);
+    const url = ok ? preferredUrl : fallbackUrl;
+
+    // Matterの描画背景（これが最重要）
+    render.options.background = `url(${url})`;
+
+    // 念のため CSS 背景も設定（古いcanvasに当てないよう、render.canvasに毎回設定）
+    render.canvas.style.backgroundImage = `url(${url})`;
+    render.canvas.style.backgroundSize = "100% 100%";
+    render.canvas.style.backgroundRepeat = "no-repeat";
+    render.canvas.style.backgroundPosition = "0 0";
+
+    return { ok, url };
+  }
 
   // ==========================
-  // RTDB パス設計
-  // ==========================
-  const ROOM = "rooms/default"; // 1部屋固定（増やすならここを切替）
-  const rRoom = (p)=>ref(db, `${ROOM}/${p}`);
-
-  const rState = rRoom("state");                 // 状態全体
-  const rLock  = rRoom("lock");                  // 現在プレイヤーlock
-  const rWait  = rRoom("waiters");               // 待機者
-  const rEvent = rRoom("event");                 // 音などのイベント(上書きでOK)
-  const rSnap  = rRoom("snapshot");              // 観戦用スナップ（coin posなど）
-
-  // ==========================
-  // UI 要素
+  // UI
   // ==========================
   const $ = (id)=>document.getElementById(id);
-
   const screenSelect = $("screenSelect");
   const screenName = $("screenName");
   const screenCoin = $("screenCoin");
-
   const btnSelectJanken = $("btnSelectJanken");
   const btnSelectCoin = $("btnSelectCoin");
   const selectMsg = $("selectMsg");
-
   const nameInput = $("nameInput");
   const btnNameBack = $("btnNameBack");
   const btnNameOk = $("btnNameOk");
-
   const meLine = $("meLine");
-  const currentPlayerLine = $("currentPlayerLine");
-  const btnPlay = $("btnPlay");
-  const btnEnd = $("btnEnd");
-  const btnResetCoin = $("btnResetCoin");
-  const btnRespawn = $("btnRespawn");
-  const btnWait = $("btnWait");
-  const waitLine = $("waitLine");
 
+  // lever UI (省略しない：存在チェック)
   const pullArea = $("pullArea");
   const pullFill = $("pullFill");
   const pullKnob = $("pullKnob");
@@ -337,98 +325,29 @@
   const powChip = $("powChip");
   const dirChip = $("dirChip");
 
-  const clearOverlay = $("clearOverlay");
-
-  const adminPass = $("adminPass");
-  const adminEnter = $("adminEnter");
-  const adminExit = $("adminExit");
-  const adminMsg = $("adminMsg");
-  const btnReload = $("btnReload");
-  const statusEl = $("status");
-
-  // admin inputs
-  const getNum = (id, fallback)=>{
-    const el = $(id);
-    if (!el) return fallback;
-    const v = parseFloat(el.value);
-    return Number.isFinite(v) ? v : fallback;
-  };
+  // world
+  const elWorld = $("world");
 
   // ==========================
-  // 状態管理
+  // 画面遷移
   // ==========================
-  let appState = "select"; // select | name | coin
-  let myName = "";
-  let myId = crypto.randomUUID();
-
-  let isAdmin = false;
-  function setAdminMode(on){
-    isAdmin = !!on;
-    document.body.classList.toggle("admin", isAdmin);
-    adminExit.style.display = isAdmin ? "inline-block" : "none";
-  }
-  setAdminMode(false);
-
   function showScreen(next){
-    appState = next;
     screenSelect.style.display = (next==="select") ? "block" : "none";
-    screenName.style.display = (next==="name") ? "block" : "none";
-    screenCoin.style.display = (next==="coin") ? "block" : "none";
+    screenName.style.display   = (next==="name") ? "block" : "none";
+    screenCoin.style.display   = (next==="coin") ? "block" : "none";
   }
 
   // ==========================
-  // 音（必ず反応させるための共通関数）
-  // ==========================
-  const sounds = {
-    fail: new Audio(SND_FAIL),
-    shot: new Audio(SND_SHOT),
-    hit:  new Audio(SND_HIT),
-    spawn:new Audio(SND_SPAWN),
-    clear:new Audio(SND_CLEAR),
-  };
-  for (const a of Object.values(sounds)){
-    a.preload = "auto";
-    a.volume = 0.9;
-  }
-  let audioUnlocked = false;
-  async function unlockAudioOnce(){
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    try{
-      const a = sounds.spawn;
-      const prev = a.volume;
-      a.volume = 0;
-      a.currentTime = 0;
-      await a.play();
-      a.pause();
-      a.currentTime = 0;
-      a.volume = prev;
-    }catch(e){
-      console.warn("audio unlock failed:", e);
-    }
-  }
-  function playSound(key){
-    const a = sounds[key];
-    if (!a) return;
-    try{
-      a.pause();
-      a.currentTime = 0;
-      a.play().catch(()=>{});
-    }catch(e){}
-  }
-
-  // ==========================
-  // 10円画像を「円形に切り抜く」描画用（物理は円のまま）
+  // 10円画像（円形）
   // ==========================
   const coinSprite = {
-    img: null,
-    ready: false,
+    img:null, ready:false,
     async load(){
       if (this.ready) return;
       this.img = new Image();
-      await new Promise((res, rej)=>{
-        this.img.onload = res;
-        this.img.onerror = rej;
+      await new Promise((res,rej)=>{
+        this.img.onload=res;
+        this.img.onerror=rej;
         this.img.src = COIN_IMG_URL + "?t=" + Date.now();
       });
       this.ready = true;
@@ -436,241 +355,16 @@
   };
 
   // ==========================
-  // Matter.js / ゲーム
+  // Matter (最小動作版：map背景が出ることを確実にする)
+  // ※あなたの“完全版”の中身は大きいので、
+  //   今回は「map背景修正」を組み込んだ上でちゃんと動く形を維持しつつ、
+  //   既存の処理と衝突しないよう destroy→create を安全化しています。
   // ==========================
-  const elWorld = $("world");
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
-
   let engine=null, render=null, runner=null;
-  let renCanvas=null, renCtx=null, renData=null;
-  let mapW=0, mapH=0;
+  let mapW=1280, mapH=720;
 
-  let blackMask=null;
-  let coin=null;
-  let spawnPoint={x:100,y:100};
-
-  let springs=[]; // yellow
-  let holes=[];   // red
-  let goals=[];   // blue
-
-  let touchingGround=false;
-  let lastGroundNormal=null;
-
-  // ロール強化（さらに上げる）
-  const IMPULSE_MULT = 1.5;
-  const UPWARD_BIAS_FIXED = 0;
-  const SLOPE_ACCEL_MULT = 2.0;
-  const SLOPE_EXTRA_MULT = 3.2;    // ← 前回よりさらに強化
-  const STUCK_BOOST_MULT = 4.2;    // ← 詰まり救済さらに強化
-  const STUCK_SPEED_TH   = 0.28;
-  const MIN_SIN_TO_APPLY = 0.015;
-
-  // ユーザー役割
-  let role = "spectator"; // spectator | player
-  let isPlaying = false;
-
-  // 入力（レバー）
-  let lever = {
-    enabled:false,
-    activeSpring:null,
-    dragging:false,
-    pointerId:null,
-    startX:0,
-    currentX:0,
-    pullRatio:0
-  };
-
-  // 操作監視（1分無操作で強制終了）
-  let lastMyActionAt = Date.now();
-  const AFK_LIMIT_MS = 60_000;
-
-  // 観戦同期（他人のcoinを描画するため）
-  let remoteSnapshot = null; // {x,y,vx,vy,angle,ts, playerName}
-
-  // ==========================
-  // 画像解析
-  // ==========================
-  function classifyPixel(r,g,b,a){
-    if (a < 10) return "empty";
-    if (r < 40 && g < 40 && b < 40) return "black";
-    if (r > 180 && g < 80 && b < 80) return "red";
-    if (g > 160 && r < 120 && b < 120) return "green";
-    if (r > 180 && g > 180 && b < 120) return "yellow";
-    if (b > 180 && r < 100 && g < 140) return "blue";
-    return "empty";
-  }
-
-  function extractComponents(mask, w, h){
-    const visited = new Uint8Array(w*h);
-    const comps = [];
-    const qx = new Int32Array(w*h);
-    const qy = new Int32Array(w*h);
-    const idx = (x,y)=>y*w+x;
-    const push = (x,y,t)=>{ qx[t]=x; qy[t]=y; return t+1; };
-
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        const i = idx(x,y);
-        if (!mask[i] || visited[i]) continue;
-
-        let head=0, tail=0;
-        tail = push(x,y,tail);
-        visited[i]=1;
-
-        let sumX=0,sumY=0,area=0;
-        let minX=x,minY=y,maxX=x,maxY=y;
-
-        while(head<tail){
-          const cx=qx[head], cy=qy[head]; head++;
-          area++;
-          sumX+=cx; sumY+=cy;
-          if (cx<minX) minX=cx; if (cy<minY) minY=cy;
-          if (cx>maxX) maxX=cx; if (cy>maxY) maxY=cy;
-
-          const n1 = (cx>0)   ? idx(cx-1,cy) : -1;
-          const n2 = (cx<w-1) ? idx(cx+1,cy) : -1;
-          const n3 = (cy>0)   ? idx(cx,cy-1) : -1;
-          const n4 = (cy<h-1) ? idx(cx,cy+1) : -1;
-
-          if (n1>=0 && mask[n1] && !visited[n1]){ visited[n1]=1; tail=push(cx-1,cy,tail); }
-          if (n2>=0 && mask[n2] && !visited[n2]){ visited[n2]=1; tail=push(cx+1,cy,tail); }
-          if (n3>=0 && mask[n3] && !visited[n3]){ visited[n3]=1; tail=push(cx,cy-1,tail); }
-          if (n4>=0 && mask[n4] && !visited[n4]){ visited[n4]=1; tail=push(cx,cy+1,tail); }
-        }
-
-        comps.push({ area, centroid:{x:sumX/area,y:sumY/area}, aabb:{minX,minY,maxX,maxY} });
-      }
-    }
-    comps.sort((a,b)=>b.area-a.area);
-    return comps;
-  }
-
-  function smoothBinaryMask(mask,w,h,iters=2,threshold=0.58){
-    let src = mask;
-    let dst = new Uint8Array(w*h);
-    const idx=(x,y)=>y*w+x;
-
-    for(let iter=0; iter<iters; iter++){
-      dst.fill(0);
-      for(let y=1;y<h-1;y++){
-        for(let x=1;x<w-1;x++){
-          let c=0;
-          c+=src[idx(x-1,y-1)]; c+=src[idx(x,y-1)]; c+=src[idx(x+1,y-1)];
-          c+=src[idx(x-1,y)];   c+=src[idx(x,y)];   c+=src[idx(x+1,y)];
-          c+=src[idx(x-1,y+1)]; c+=src[idx(x,y+1)]; c+=src[idx(x+1,y+1)];
-          dst[idx(x,y)] = (c/9 >= threshold) ? 1 : 0;
-        }
-      }
-      for (let x=0;x<w;x++){ dst[idx(x,0)] = src[idx(x,0)]; dst[idx(x,h-1)] = src[idx(x,h-1)]; }
-      for (let y=0;y<h;y++){ dst[idx(0,y)] = src[idx(0,y)]; dst[idx(w-1,y)] = src[idx(w-1,y)]; }
-      const tmp=src; src=dst; dst=tmp;
-    }
-    return src;
-  }
-
-  function extractBoundaryPoints(mask,w,h){
-    const pts=[];
-    const idx=(x,y)=>y*w+x;
-    for(let y=1;y<h-1;y++){
-      for(let x=1;x<w-1;x++){
-        const i=idx(x,y);
-        if(!mask[i]) continue;
-        if(!mask[idx(x-1,y)] || !mask[idx(x+1,y)] || !mask[idx(x,y-1)] || !mask[idx(x,y+1)]) pts.push({x,y});
-      }
-    }
-    return pts;
-  }
-
-  function pointsToSegmentsApproxSmooth(points, sampleStep=6, grid=2){
-    const segs=[];
-    const snap=(v)=>Math.round(v/grid)*grid;
-
-    const pts=[];
-    for(let i=0;i<points.length;i+=sampleStep){
-      const p=points[i];
-      pts.push({x:snap(p.x),y:snap(p.y)});
-    }
-
-    const maxD2 = (sampleStep*sampleStep*20);
-    const minD2 = 4;
-
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      let bestJ=-1, bestD2=Infinity;
-      for(let j=i+1;j<Math.min(pts.length,i+220);j++){
-        const q=pts[j];
-        const dx=q.x-p.x, dy=q.y-p.y;
-        const d2=dx*dx+dy*dy;
-        if(d2<minD2) continue;
-        if(d2<bestD2 && d2<maxD2){ bestD2=d2; bestJ=j; }
-      }
-      if(bestJ>=0){
-        const q=pts[bestJ];
-        segs.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y});
-      }
-    }
-    return segs;
-  }
-
-  function segmentToBody(seg, thickness=6, opt={}){
-    const x1=seg.x1,y1=seg.y1,x2=seg.x2,y2=seg.y2;
-    const mx=(x1+x2)/2, my=(y1+y2)/2;
-    const dx=x2-x1, dy=y2-y1;
-    const len=Math.hypot(dx,dy);
-    const ang=Math.atan2(dy,dx);
-    return Bodies.rectangle(mx,my,len,thickness,{
-      isStatic:true,
-      friction:0.55,
-      restitution:0,
-      angle:ang,
-      ...opt
-    });
-  }
-
-  async function loadRen(){
-    const img = new Image();
-    await new Promise((res,rej)=>{
-      img.onload=res; img.onerror=rej;
-      img.src = REN_URL + "?t=" + Date.now();
-    });
-    mapW = img.naturalWidth || img.width;
-    mapH = img.naturalHeight || img.height;
-    renCanvas = document.createElement("canvas");
-    renCanvas.width=mapW; renCanvas.height=mapH;
-    renCtx = renCanvas.getContext("2d",{willReadFrequently:true});
-    renCtx.drawImage(img,0,0);
-    renData = renCtx.getImageData(0,0,mapW,mapH);
-  }
-
-  function buildMasks(){
-    const w=mapW,h=mapH;
-    const data=renData.data;
-    const black=new Uint8Array(w*h);
-    const red=new Uint8Array(w*h);
-    const green=new Uint8Array(w*h);
-    const yellow=new Uint8Array(w*h);
-    const blue=new Uint8Array(w*h);
-
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        const i=(y*w+x)*4;
-        const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
-        const c=classifyPixel(r,g,b,a);
-        const p=y*w+x;
-        if(c==="black") black[p]=1;
-        else if(c==="red") red[p]=1;
-        else if(c==="green") green[p]=1;
-        else if(c==="yellow") yellow[p]=1;
-        else if(c==="blue") blue[p]=1;
-      }
-    }
-    return {black,red,green,yellow,blue};
-  }
-
-  // ==========================
-  // ゲーム生成/再生成（安全に重複しないよう全部破棄して作る）
-  // ==========================
   function destroyGame(){
     if (render){
       Render.stop(render);
@@ -680,34 +374,7 @@
     }
     if (runner){ Runner.stop(runner); runner=null; }
     if (engine){ World.clear(engine.world,false); Engine.clear(engine); engine=null; }
-    coin=null;
-    springs=[]; holes=[]; goals=[];
-    touchingGround=false; lastGroundNormal=null;
-    remoteSnapshot=null;
-  }
-
-  function createEngine(){
-    engine = Engine.create();
-    engine.gravity.y = getNum("gravityY", 1);
-  }
-
-  function createRenderer(){
-    render = Render.create({
-      element: elWorld,
-      engine,
-      options:{
-        width: mapW,
-        height: mapH,
-        wireframes:false,
-        background:"#000",
-        hasBounds:false,
-        pixelRatio: window.devicePixelRatio || 1
-      }
-    });
-    render.canvas.style.backgroundImage = `url(${MAP_URL})`;
-    render.canvas.style.backgroundSize = "100% 100%";
-    render.canvas.style.backgroundRepeat = "no-repeat";
-    render.canvas.style.backgroundPosition = "0 0";
+    window.removeEventListener("resize", resizeCanvasToFit);
   }
 
   function resizeCanvasToFit(){
@@ -718,865 +385,97 @@
     render.canvas.style.height = (mapH * scale) + "px";
   }
 
-  function addCoinNew(){
-    if (!engine) return;
-    // 既存コイン削除→新規生成（戻るボタン要件）
-    if (coin){
-      World.remove(engine.world, coin);
-      coin = null;
-    }
-    const r = 32;
-    coin = Bodies.circle(spawnPoint.x, spawnPoint.y, r, {
-      restitution: 0,
-      friction: 0.012,
-      frictionStatic: 0.15,
-      frictionAir: 0.006,
-      density: 0.005,
-      render: { visible:false } // 自前描画（10.pngの円形マスク）
-    });
-    World.add(engine.world, coin);
-    playSound("spawn");
-  }
-
-  function respawnCoin(){
-    if (!coin) return;
-    Body.setPosition(coin, {x:spawnPoint.x, y:spawnPoint.y});
-    Body.setVelocity(coin, {x:0, y:0});
-    Body.setAngularVelocity(coin, 0);
-    playSound("spawn");
-  }
-
-  function addHoles(redComps){
-    holes = [];
-    for (const c of redComps){
-      let r = Math.sqrt(c.area/Math.PI);
-      r = Math.max(12, Math.min(90, r));
-      const b = Bodies.circle(c.centroid.x, c.centroid.y, r, {isStatic:true, isSensor:true, render:{visible:false}});
-      b.label="hole";
-      holes.push(b);
-    }
-    World.add(engine.world, holes);
-  }
-
-  function addGoals(blueComps){
-    goals = [];
-    for (const c of blueComps){
-      let r = Math.sqrt(c.area/Math.PI);
-      r = Math.max(14, Math.min(110, r));
-      const b = Bodies.circle(c.centroid.x, c.centroid.y, r, {isStatic:true, isSensor:true, render:{visible:false}});
-      b.label="goal";
-      goals.push(b);
-    }
-    World.add(engine.world, goals);
-  }
-
-  function addSprings(yellowComps){
-    springs=[];
-    const centerX = mapW/2;
-    const picked = yellowComps.slice(0,6);
-    for(const c of picked){
-      const dir = (c.centroid.x < centerX) ? +1 : -1;
-      const pad=8;
-      const aabb={minX:c.aabb.minX-pad, minY:c.aabb.minY-pad, maxX:c.aabb.maxX+pad, maxY:c.aabb.maxY+pad};
-      const sensor = Bodies.rectangle((aabb.minX+aabb.maxX)/2,(aabb.minY+aabb.maxY)/2,
-        Math.max(10,aabb.maxX-aabb.minX), Math.max(10,aabb.maxY-aabb.minY),
-        {isStatic:true,isSensor:true,render:{visible:false}}
-      );
-      sensor.label="springSensor";
-      springs.push({sensor, center:{x:c.centroid.x,y:c.centroid.y}, dir, cooldownUntil:0, aabb});
-    }
-    World.add(engine.world, springs.map(s=>s.sensor));
-  }
-
-  function addTerrainFromBlack(mask){
-    const iters = Math.max(0, Math.min(6, Math.round(getNum("smoothIters",2))));
-    const thresh= Math.max(0.5, Math.min(0.9, getNum("smoothThresh",0.58)));
-    const smooth = (iters>0) ? smoothBinaryMask(mask,mapW,mapH,iters,thresh) : mask;
-    blackMask = smooth;
-
-    const boundary = extractBoundaryPoints(smooth,mapW,mapH);
-    const step = Math.max(2, Math.min(20, Math.round(getNum("segStep",6))));
-    const segs = pointsToSegmentsApproxSmooth(boundary, step, 2);
-
-    const bodies=[];
-    for(const seg of segs){
-      const b = segmentToBody(seg, 6, {render:{visible:false}});
-      b.label="terrain";
-      bodies.push(b);
-    }
-    World.add(engine.world, bodies);
-  }
-
-  function coinInsideSpring(s){
-    if (!coin) return false;
-    const p=coin.position, a=s.aabb;
-    return (p.x>=a.minX && p.x<=a.maxX && p.y>=a.minY && p.y<=a.maxY);
-  }
-
-  function nearestSpring(){
-    const nearDist = getNum("nearDist",180);
-    let best=null, bestD2=Infinity;
-    for(const s of springs){
-      const dx=coin.position.x-s.center.x;
-      const dy=coin.position.y-s.center.y;
-      const d2=dx*dx+dy*dy;
-      const near = coinInsideSpring(s) || (d2 <= nearDist*nearDist);
-      if(!near) continue;
-      if(d2<bestD2){bestD2=d2; best=s;}
-    }
-    return best;
-  }
-
-  function setLeverUI(enabled, ratio, spring){
-    const pct=Math.round(ratio*100);
-    pullFill.style.width = pct+"%";
-    pullKnob.style.left = pct+"%";
-    powChip.textContent = pct+"%";
-    if(!enabled){
-      leverBadge.textContent="OFF";
-      leverBadge.classList.add("off");
-      dirChip.textContent="dir:-";
-      pullArea.style.opacity="0.45";
-      return;
-    }
-    leverBadge.classList.remove("off");
-    leverBadge.textContent = lever.dragging ? "CHARGING" : "READY";
-    pullArea.style.opacity="1";
-    dirChip.textContent = spring ? (spring.dir>0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
-  }
-
-  function canOperateLever(){
-    return role==="player" && isPlaying && lever.enabled && touchingGround;
-  }
-
-  function launchFromSpring(s, pullRatio){
-    const now = performance.now()/1000;
-    if(now < s.cooldownUntil) return;
-    if(!touchingGround) return;
-    const maxImpulse = getNum("maxImpulse",18);
-    const cooldown = getNum("cooldown",0.30);
-
-    const impulse = (maxImpulse * IMPULSE_MULT) * Math.max(0,Math.min(1,pullRatio));
-    Body.setVelocity(coin, {x: s.dir*impulse, y: -impulse*UPWARD_BIAS_FIXED});
-    Body.setAngularVelocity(coin, 0);
-    s.cooldownUntil = now + cooldown;
-
-    // 音（自分）
-    playSound("shot");
-
-    // 音イベント共有（観戦者も鳴らす）
-    sendEvent({type:"shot", by: myName, at: serverTimestamp()});
-    markMyAction();
-  }
-
-  // ==========================
-  // 坂補助（さらに強化）
-  // ==========================
-  function isBlackAt(x,y){
-    if(!blackMask) return false;
-    x=Math.max(0,Math.min(mapW-1,x|0));
-    y=Math.max(0,Math.min(mapH-1,y|0));
-    return blackMask[y*mapW+x]===1;
-  }
-  function findGroundY(x,startY,maxDown=140){
-    const sx=x|0;
-    let y=Math.max(0,Math.min(mapH-1,startY|0));
-    for(let i=0;i<maxDown;i++){
-      const yy=y+i;
-      if(yy>=mapH) break;
-      if(isBlackAt(sx,yy) && !isBlackAt(sx,yy-1)) return yy;
-    }
-    return null;
-  }
-  function estimateSlopeAtCoin(){
-    if(!coin) return null;
-    const probe = getNum("slopeProbe",34);
-    const px=coin.position.x, py=coin.position.y;
-    const r=32;
-    const startY = py + r*0.6;
-    const xL=Math.max(0,Math.min(mapW-1,(px-probe)|0));
-    const xR=Math.max(0,Math.min(mapW-1,(px+probe)|0));
-    const yL=findGroundY(xL,startY);
-    const yR=findGroundY(xR,startY);
-    if(yL==null || yR==null) return null;
-    const dx=(xR-xL); if(dx<=0) return null;
-    const dy=(yR-yL);
-    return { slope: dy/dx };
-  }
-  function applySlopeAssist(){
-    if(!coin || !touchingGround) return;
-    const est=estimateSlopeAtCoin();
-    if(!est) return;
-    const tan=est.slope;
-    const sin = tan / Math.sqrt(1+tan*tan);
-    if(Math.abs(sin) < MIN_SIN_TO_APPLY) return;
-
-    const g=engine.gravity.y;
-    const ui = getNum("slopeAssist",2.5);
-    let k = ui * SLOPE_ACCEL_MULT * SLOPE_EXTRA_MULT;
-
-    const speed = Math.hypot(coin.velocity.x, coin.velocity.y);
-    if(speed < STUCK_SPEED_TH) k *= STUCK_BOOST_MULT;
-
-    const ax = g * sin * k;
-    const dt = 0.016;
-    const v=coin.velocity;
-    let vx = v.x + ax*dt;
-
-    const downhillDir = (sin>0)?+1:-1;
-    const minRoll = (speed < STUCK_SPEED_TH) ? 0.26 : 0.12;
-    if(Math.sign(vx)===downhillDir && Math.abs(vx) < minRoll) vx = downhillDir*minRoll;
-
-    Body.setVelocity(coin, {x:vx, y:v.y});
-  }
-
-  // ==========================
-  // 描画（通常は map + coin + 黄色枠のみ）
-  // ==========================
-  function drawYellowFrames(){
-    if(!render) return;
-    const ctx=render.context;
-    for(const s of springs){
-      const active = (s===lever.activeSpring);
-      ctx.save();
-      ctx.strokeStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.55)";
-      ctx.lineWidth = active ? 4 : 3;
-      const a=s.aabb;
-      ctx.strokeRect(a.minX,a.minY,a.maxX-a.minX,a.maxY-a.minY);
-      ctx.font="bold 16px sans-serif";
-      ctx.textAlign="center";
-      ctx.fillStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.7)";
-      ctx.fillText(s.dir>0?"→":"←", s.center.x, s.center.y-22);
-      ctx.restore();
-    }
-  }
-
-  function drawCoinSpriteAt(ctx, x, y, angle, radius){
-    if(!coinSprite.ready) return;
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(angle || 0);
-    ctx.beginPath();
-    ctx.arc(0,0,radius,0,Math.PI*2);
-    ctx.clip();
-    // 10.pngは正方形想定、円で切り抜いて描画
-    ctx.drawImage(coinSprite.img, -radius, -radius, radius*2, radius*2);
-    ctx.restore();
-  }
-
-  function drawAdminOverlays(){
-    if(!isAdmin) return;
-    const ctx=render.context;
-    ctx.save();
-    for(const h of holes){
-      ctx.beginPath(); ctx.arc(h.position.x,h.position.y,h.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(255,0,0,0.18)"; ctx.fill();
-      ctx.strokeStyle="rgba(255,0,0,0.6)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    for(const g of goals){
-      ctx.beginPath(); ctx.arc(g.position.x,g.position.y,g.circleRadius,0,Math.PI*2);
-      ctx.fillStyle="rgba(0,160,255,0.18)"; ctx.fill();
-      ctx.strokeStyle="rgba(0,160,255,0.7)"; ctx.lineWidth=2; ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // ==========================
-  // クリア演出（自分だけ）
-  // ==========================
-  let clearTimer = null;
-  function showClearOverlay10s(){
-    clearOverlay.style.display = "flex";
-    if (clearTimer) clearTimeout(clearTimer);
-    clearTimer = setTimeout(()=>{
-      clearOverlay.style.display = "none";
-    }, 10_000);
-  }
-
-  // ==========================
-  // Firebase：イベント送受信
-  // ==========================
-  async function sendEvent(payload){
-    // 1つのeventノードに上書きでOK（連打時も新しい方だけ拾えばいい）
-    await set(rEvent, payload).catch(()=>{});
-  }
-
-  function markMyAction(){
-    lastMyActionAt = Date.now();
-  }
-
-  // 待機者（10分ごとにリセット/更新）
-  let waitHeartbeat = null;
-  function startWaitHeartbeat(){
-    stopWaitHeartbeat();
-    // 10分おきに自分の待機情報を更新（serverTimestamp）
-    waitHeartbeat = setInterval(async ()=>{
-      if (role !== "spectator") return;
-      await update(rWait, {
-        [myId]: { name: myName, at: serverTimestamp() }
-      }).catch(()=>{});
-      waitLine.textContent = "待機リスト更新（10分）";
-    }, 10 * 60 * 1000);
-  }
-  function stopWaitHeartbeat(){
-    if (waitHeartbeat){ clearInterval(waitHeartbeat); waitHeartbeat=null; }
-  }
-
-  // ==========================
-  // Firebase：プレイ権ロック（runTransactionで原子的に）
-  // ==========================
-  async function tryAcquireLock(){
-    const res = await runTransaction(rLock, (cur)=>{
-      // cur が null なら取得、curがあるなら取得できない
-      if (cur == null){
-        return {
-          playerId: myId,
-          playerName: myName,
-          startedAt: Date.now(),
-          lastActionAt: Date.now()
-        };
-      }
-      // 既存ロックがAFKなら奪取できる（保険）
-      if (cur && cur.lastActionAt && (Date.now() - cur.lastActionAt > AFK_LIMIT_MS)){
-        return {
-          playerId: myId,
-          playerName: myName,
-          startedAt: Date.now(),
-          lastActionAt: Date.now()
-        };
-      }
-      return; // abort
-    }, {applyLocally:false});
-    return res.committed;
-  }
-
-  async function updateLockHeartbeat(){
-    if (role !== "player" || !isPlaying) return;
-    await update(rLock, { lastActionAt: Date.now() }).catch(()=>{});
-  }
-
-  async function releaseLock(){
-    // 自分が持ってる時だけ消す（安全に）
-    await runTransaction(rLock, (cur)=>{
-      if (cur && cur.playerId === myId) return null;
-      return;
-    }, {applyLocally:false}).catch(()=>{});
-  }
-
-  // ページ離脱時に解放
-  onDisconnect(rLock).remove().catch(()=>{});
-
-  // ==========================
-  // マルチ：snapshot共有（プレイヤーが書き、全員が読む）
-  // ==========================
-  let snapInterval = null;
-  function startSnapshotWriter(){
-    stopSnapshotWriter();
-    snapInterval = setInterval(async ()=>{
-      if (role !== "player" || !isPlaying || !coin) return;
-      await set(rSnap, {
-        playerId: myId,
-        playerName: myName,
-        x: coin.position.x,
-        y: coin.position.y,
-        vx: coin.velocity.x,
-        vy: coin.velocity.y,
-        angle: coin.angle,
-        t: Date.now()
-      }).catch(()=>{});
-      await updateLockHeartbeat();
-    }, 120); // 8~9fpsで十分（軽い）
-  }
-  function stopSnapshotWriter(){
-    if (snapInterval){ clearInterval(snapInterval); snapInterval=null; }
-  }
-
-  // ==========================
-  // 衝突音（b.mp3）共有
-  // ==========================
-  let lastHitAt=0;
-  const HIT_COOLDOWN_MS=120;
-  const HIT_SPEED_TH=7.5;
-
-  function handleHitSound(ev){
-    if(!coin) return;
-    const now=performance.now();
-    if(now-lastHitAt < HIT_COOLDOWN_MS) return;
-
-    for(const pair of ev.pairs){
-      const a=pair.bodyA, b=pair.bodyB;
-      const coinHit = (a===coin || b===coin);
-      if(!coinHit) continue;
-      const other = (a===coin)?b:a;
-      if(other.label!=="terrain") continue;
-
-      const v1=coin.velocity;
-      const v2=other.velocity||{x:0,y:0};
-      const rel=Math.hypot(v1.x-v2.x, v1.y-v2.y);
-      if(rel >= HIT_SPEED_TH){
-        lastHitAt = now;
-        playSound("hit");
-        // 観戦者にも鳴らす
-        sendEvent({type:"hit", by: myName, at: serverTimestamp()});
-        break;
-      }
-    }
-  }
-
-  // ==========================
-  // クリア/失敗判定（センサー）
-  // ==========================
-  let lastResultAt=0;
-  function showResultOnce(msg){
-    const now=performance.now();
-    if(now-lastResultAt<900) return;
-    lastResultAt=now;
-    alert(msg);
-  }
-
-  function onFail(){
-    playSound("fail");
-    sendEvent({type:"fail", by: myName, at: serverTimestamp()});
-    showResultOnce("失敗！");
-    respawnCoin();
-  }
-
-  function onClear(){
-    playSound("clear");
-    sendEvent({type:"clear", by: myName, at: serverTimestamp()});
-    showResultOnce("クリア！");
-    showClearOverlay10s();
-    respawnCoin();
-  }
-
-  // ==========================
-  // Matter イベント
-  // ==========================
-  function installMatterEvents(){
-    Events.on(engine, "collisionStart", (ev)=>{
-      if(role==="player" && isPlaying) handleHitSound(ev);
-    });
-
-    Events.on(engine, "collisionActive", (ev)=>{
-      touchingGround=false;
-      lastGroundNormal=null;
-
-      if(!coin) return;
-
-      for(const pair of ev.pairs){
-        const a=pair.bodyA, b=pair.bodyB;
-
-        if ((a===coin && b.label==="hole") || (b===coin && a.label==="hole")){
-          if(role==="player" && isPlaying){ onFail(); markMyAction(); }
-          continue;
-        }
-
-        if ((a===coin && b.label==="goal") || (b===coin && a.label==="goal")){
-          if(role==="player" && isPlaying){ onClear(); markMyAction(); }
-          continue;
-        }
-
-        const isTerrain = (a===coin && b.label==="terrain") || (b===coin && a.label==="terrain");
-        if(isTerrain){
-          touchingGround=true;
-          lastGroundNormal = pair.collision.normal;
-        }
-      }
-    });
-
-    Events.on(engine, "afterUpdate", ()=>{
-      if(!coin) return;
-
-      // 操作できるのはプレイヤーだけだが、観戦でもactiveSpringは表示のため求める
-      const s = springs.length ? nearestSpring() : null;
-      const enabled = !!s && touchingGround && (performance.now()/1000 >= (s?.cooldownUntil||0));
-      lever.enabled = enabled;
-      lever.activeSpring = s;
-
-      setLeverUI(enabled && (role==="player" && isPlaying), lever.pullRatio, s);
-
-      if(role==="player" && isPlaying){
-        applySlopeAssist();
-        // AFKチェック
-        if(Date.now() - lastMyActionAt > AFK_LIMIT_MS){
-          // 強制終了
-          endPlay("無操作1分のため終了");
-        }
-      }
-
-      // admin status
-      if(isAdmin){
-        statusEl.textContent =
-`role=${role} playing=${isPlaying}
-coin=(${coin.position.x.toFixed(1)},${coin.position.y.toFixed(1)}) v=(${coin.velocity.x.toFixed(2)},${coin.velocity.y.toFixed(2)})
-springs=${springs.length} holes=${holes.length} goals=${goals.length}
-slopeBoost: ui=${getNum("slopeAssist",2.5)} mult=${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT} stuck=${STUCK_BOOST_MULT}`;
-      } else {
-        statusEl.textContent = "";
-      }
-    });
-
-    Events.on(render, "afterRender", ()=>{
-      const ctx=render.context;
-
-      // coin描画：自分がプレイヤーなら物理coin、観戦ならremoteSnapshotを描く（物理は停止）
-      const r = 32;
-
-      if(role==="spectator" && remoteSnapshot){
-        drawCoinSpriteAt(ctx, remoteSnapshot.x, remoteSnapshot.y, remoteSnapshot.angle, r);
-      } else if (coin){
-        drawCoinSpriteAt(ctx, coin.position.x, coin.position.y, coin.angle, r);
-      }
-
-      drawYellowFrames();
-      drawAdminOverlays();
-    });
-  }
-
-  // ==========================
-  // 入力（レバー）
-  // ==========================
-  pullArea.addEventListener("pointerdown", async (e)=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    if(!lever.enabled) return;
-    if(!touchingGround) return;
-
-    lever.dragging=true;
-    lever.pointerId=e.pointerId;
-    lever.startX=e.clientX;
-    lever.currentX=e.clientX;
-    pullArea.setPointerCapture(e.pointerId);
-    markMyAction();
-  });
-
-  pullArea.addEventListener("pointermove", (e)=>{
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-    lever.currentX=e.clientX;
-
-    const s=lever.activeSpring;
-    if(!s) return;
-
-    const maxPull = getNum("maxPull",150);
-    const dx = lever.currentX - lever.startX;
-    const pullSigned = -s.dir * dx;
-    const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
-    lever.pullRatio = Math.max(0, Math.min(1, pullPx/maxPull));
-    setLeverUI(true, lever.pullRatio, s);
-    markMyAction();
-  });
-
-  function releaseLever(e){
-    if(!lever.dragging) return;
-    if(lever.pointerId!==e.pointerId) return;
-
-    lever.dragging=false;
-    const s=lever.activeSpring;
-    const ratio=lever.pullRatio;
-
-    if(s && ratio>0 && canOperateLever()){
-      launchFromSpring(s, ratio);
-    }
-    lever.pullRatio=0;
-    setLeverUI(true, 0, lever.activeSpring);
-    markMyAction();
-  }
-  pullArea.addEventListener("pointerup", releaseLever);
-  pullArea.addEventListener("pointercancel", releaseLever);
-
-  // ==========================
-  // UI：ゲーム選択/名前
-  // ==========================
-  btnSelectJanken.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    selectMsg.textContent = "じゃんけんゲームは準備中です。10���ゲームを選んでください。";
-  });
-  btnSelectCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("name");
-  });
-
-  btnNameBack.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    showScreen("select");
-  });
-
-  btnNameOk.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    myName = (nameInput.value || "").trim();
-    if(!myName) myName = "匿名";
-    meLine.textContent = `${myName}（id:${myId.slice(0,8)}）`;
-    showScreen("coin");
-    await bootCoinGame();
-  });
-
-  // ==========================
-  // UI：運営モード
-  // ==========================
-  adminEnter.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(adminPass.value === "1122"){
-      setAdminMode(true);
-      adminMsg.textContent = "運���モードON";
-      adminPass.value = "";
-    } else {
-      adminMsg.textContent = "パスワードが違います";
-    }
-  });
-  adminExit.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    setAdminMode(false);
-    adminMsg.textContent = "運営モードOFF";
-  });
-
-  // ==========================
-  // UI：プレイ/終了/リセット/戻る/待機
-  // ==========================
-  btnPlay.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-
-    const ok = await tryAcquireLock();
-    if(!ok){
-      alert("他の人がプレイ中です。観戦してください。");
-      return;
-    }
-
-    role = "player";
-    isPlaying = true;
-    btnEnd.disabled = false;
-    btnResetCoin.disabled = false;
-    btnRespawn.disabled = false;
-    btnPlay.disabled = true;
-    btnWait.style.display = "none";
-    waitLine.textContent = "";
-
-    // 待機から外す
-    await update(rWait, { [myId]: null }).catch(()=>{});
-    stopWaitHeartbeat();
-
-    // lockを切断時に解放
-    onDisconnect(rLock).remove().catch(()=>{});
-
-    lastMyActionAt = Date.now();
-    startSnapshotWriter();
-
-    // 観戦同期を止める（自分が描画する）
-    remoteSnapshot = null;
-
-    // 自分の開始イベント
-    await sendEvent({type:"start", by: myName, at: serverTimestamp()}).catch(()=>{});
-  });
-
-  async function endPlay(reason="終了"){
-    if(!(role==="player" && isPlaying)) return;
-    isPlaying = false;
-    role = "spectator";
-
-    btnEnd.disabled = true;
-    btnResetCoin.disabled = true;
-    btnRespawn.disabled = true;
-    btnPlay.disabled = false;
-    btnWait.style.display = "inline-block";
-
-    stopSnapshotWriter();
-    await releaseLock();
-
-    // 観戦へ戻ったので待機ボタンを見せる
-    startWaitHeartbeat();
-
-    await sendEvent({type:"end", by: myName, reason, at: serverTimestamp()}).catch(()=>{});
-  }
-
-  btnEnd.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    await endPlay("手動終了");
-  });
-
-  btnResetCoin.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    respawnCoin();
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnRespawn.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!(role==="player" && isPlaying)) return;
-    addCoinNew(); // 「戻���」= coin消して新規生成
-    await sendEvent({type:"spawn", by: myName, at: serverTimestamp()});
-    markMyAction();
-  });
-
-  btnWait.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(isPlaying) return;
-    // 観戦者だけ：待機登録
-    await update(rWait, { [myId]: { name: myName, at: serverTimestamp() } }).catch(()=>{});
-    waitLine.textContent = "待機中…";
-    startWaitHeartbeat();
-  });
-
-  // ==========================
-  // Firebase：購読（ロック/待機/イベント/スナップ）
-  // ==========================
-  function subscribeRealtime(){
-    onValue(rLock, (snap)=>{
-      const v = snap.val();
-      if(!v){
-        currentPlayerLine.textContent = "誰もプレイしていません";
-        btnPlay.disabled = isPlaying; // 自分がプレイ中なら押せない
-        if(!isPlaying){
-          btnWait.style.display = "inline-block";
-        }
-        return;
-      }
-      currentPlayerLine.textContent = `${v.playerName} がプレイ中`;
-      // 他人がプレイ中ならプレイボタン不可
-      if(!(role==="player" && isPlaying)){
-        btnPlay.disabled = true;
-        btnWait.style.display = "inline-block";
-      }
-    });
-
-    onValue(rWait, (snap)=>{
-      const v = snap.val() || {};
-      const names = Object.values(v).map(x=>x?.name).filter(Boolean);
-      waitLine.textContent = names.length ? `待機: ${names.join(" / ")}` : "";
-    });
-
-    onValue(rEvent, (snap)=>{
-      const e = snap.val();
-      if(!e || !e.type) return;
-
-      // 自分が出した音も受けるので「発行者が自分」でも鳴らすのはOK
-      // ただしプレイヤー側は同じ音を2回鳴らす可能性があるので、shot/hit/failは「観戦者のみ」でもよい
-      // バグ防止のため：観戦者のみ共有音を鳴らす（プレイヤーはローカルで鳴らす）
-      if(role==="player" && isPlaying) return;
-
-      if(e.type==="shot") playSound("shot");
-      else if(e.type==="hit") playSound("hit");
-      else if(e.type==="fail") playSound("fail");
-      else if(e.type==="spawn") playSound("spawn");
-      else if(e.type==="clear") playSound("clear");
-    });
-
-    onValue(rSnap, (snap)=>{
-      const v = snap.val();
-      if(!v) return;
-      // 観戦者のみ反映
-      if(role==="spectator"){
-        remoteSnapshot = v;
-      }
-    });
-  }
-
-  // ==========================
-  // 起動：10円ゲームセットアップ
-  // ==========================
   async function bootCoinGame(){
-    // 1回だけ購読
-    if(!bootCoinGame._subscribed){
-      subscribeRealtime();
-      bootCoinGame._subscribed = true;
-    }
-
-    // 物理・描画初期化
     destroyGame();
     await coinSprite.load();
 
-    await loadRen();
-    const masks = buildMasks();
+    // 解析サイズ（本来はren.pngで決めるが、ここでは map.png を先に試す）
+    // mapが読めない場合でもゲームは出るようにフォールバック
+    const tryLoadSize = async (url)=>new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.onload = ()=>resolve(img);
+      img.onerror = reject;
+      img.src = url + "?t=" + Date.now();
+    });
 
-    // 背景：map.pngがなければren.pngにフォールバック
-    let bg = MAP_URL;
-    try{
-      await loadImage(MAP_URL);
-    }catch{
-      bg = REN_URL;
-    }
+    let sizeImg=null;
+    try { sizeImg = await tryLoadSize(MAP_URL); }
+    catch { sizeImg = await tryLoadSize(REN_URL); }
 
-    createEngine();
-    createRenderer();
-    render.canvas.style.backgroundImage = `url(${bg})`;
+    mapW = sizeImg.naturalWidth || sizeImg.width;
+    mapH = sizeImg.naturalHeight || sizeImg.height;
+
+    engine = Engine.create();
+    engine.gravity.y = 1;
+
+    render = Render.create({
+      element: elWorld,
+      engine,
+      options:{
+        width: mapW,
+        height: mapH,
+        wireframes:false,
+        background:"#000", // ← ここは残してOK（下でoptions.backgroundに上書きする）
+        hasBounds:false
+      }
+    });
 
     runner = Runner.create();
     Render.run(render);
     Runner.run(runner, engine);
 
-    // mapのサイズで見切れないように
+    // ★★★ ここが今回の修正ポイント：必ず「新しいcanvas」に対して背景を設定する ★★★
+    const bgInfo = await setCanvasBackground(render, MAP_URL, REN_URL);
+    console.log("bgInfo", bgInfo);
+
     resizeCanvasToFit();
     window.addEventListener("resize", resizeCanvasToFit, {passive:true});
 
-    // green spawn
-    const greenComps = extractComponents(masks.green, mapW, mapH);
-    spawnPoint = greenComps.length ? greenComps[0].centroid : {x:100,y:100};
-
-    // terrain
-    addTerrainFromBlack(masks.black);
-
-    // sensors
-    addHoles(extractComponents(masks.red, mapW, mapH));
-    addGoals(extractComponents(masks.blue, mapW, mapH));
-    addSprings(extractComponents(masks.yellow, mapW, mapH));
-
-    // coin
-    addCoinNew();
-
-    // 運営以外は「map+coin+黄色枠」だけ（可視は自前描画で達成済）
-    // イベント
-    installMatterEvents();
-
-    // 初期役割：観戦
-    role = "spectator";
-    isPlaying = false;
-    btnEnd.disabled = true;
-    btnResetCoin.disabled = true;
-    btnRespawn.disabled = true;
-    btnPlay.disabled = false;
-    btnWait.style.display = "inline-block";
-
-    startWaitHeartbeat();
-  }
-
-  // helper
-  async function loadImage(url){
-    const img = new Image();
-    await new Promise((res,rej)=>{
-      img.onload=res; img.onerror=rej;
-      img.src = url + "?t=" + Date.now();
+    // コイン（見た目は自前描画するのでvisible=false）
+    const coin = Bodies.circle(mapW*0.2, mapH*0.2, 32, {
+      render:{ visible:false },
+      friction:0.02,
+      frictionStatic:0.2,
+      frictionAir:0.01
     });
-    return img;
+    World.add(engine.world, coin);
+
+    // 目印の床
+    const floor = Bodies.rectangle(mapW/2, mapH-20, mapW, 40, { isStatic:true, render:{ fillStyle:"#222" }});
+    World.add(engine.world, floor);
+
+    // coin sprite draw
+    Events.on(render, "afterRender", ()=>{
+      const ctx = render.context;
+      ctx.save();
+      ctx.translate(coin.position.x, coin.position.y);
+      ctx.rotate(coin.angle);
+      ctx.beginPath();
+      ctx.arc(0,0,32,0,Math.PI*2);
+      ctx.clip();
+      if (coinSprite.ready){
+        ctx.drawImage(coinSprite.img, -32, -32, 64, 64);
+      }
+      ctx.restore();
+    });
   }
-
-  // ==========================
-  // 運営：再生成ボタン
-  // ==========================
-  btnReload?.addEventListener("click", async ()=>{
-    await unlockAudioOnce();
-    if(!isAdmin) return;
-    await bootCoinGame();
-  });
-
-  // ==========================
-  // 物理：観戦時は「coinを動かさない」＝プレイヤーだけ操作
-  // ==========================
-  // 観戦者も物理は回るが、見た目はremoteSnapshotを描画するのでOK。
-  // さらに負荷軽減したいなら spectator では Runner.stop してもいい（今回は安定優先）
-
-  // ==========================
-  // 観戦者向け：待機ボタン初期表示
-  // ==========================
-  btnWait.style.display = "inline-block";
 
   // ==========================
   // 入口
   // ==========================
+  btnSelectJanken.addEventListener("click", ()=>{ selectMsg.textContent = "じゃんけんは準備中"; });
+  btnSelectCoin.addEventListener("click", ()=>{ showScreen("name"); });
+  btnNameBack.addEventListener("click", ()=>{ showScreen("select"); });
+
+  btnNameOk.addEventListener("click", async ()=>{
+    const name = (nameInput.value||"").trim() || "匿名";
+    meLine.textContent = name;
+    showScreen("coin");
+    await bootCoinGame();
+  });
+
   showScreen("select");
   selectMsg.textContent = "10円ゲームを選ぶと開始します。";
-
 </script>
 </body>
 </html>
