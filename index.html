@@ -1,45 +1,3 @@
-```html
-<script type="module">
-  // ==========================
-  // Firebase 初期化
-  // ==========================
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
-  import {
-    getDatabase,
-    ref,
-    onValue,
-    set,
-    update,
-    push,
-    serverTimestamp,
-  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCC7KAv7V4j1Z6-o1Y8ikmb3r5htN9O_aA",
-    authDomain: "zzgohan-280.firebaseapp.com",
-    databaseURL: "https://zzgohan-280-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "zzgohan-280",
-    storageBucket: "zzgohan-280.firebasestorage.app",
-    messagingSenderId: "459336048542",
-    appId: "1:459336048542:web:ff6c825dec81cc7df8008f",
-    measurementId: "G-JX4RP9LWR3"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-  const db = getDatabase(app);
-
-```
-
-以下に **「isAdminMode重複エラーを出さない」修正版の統合完全版** `index.html` を、まるごと1ファイルで書き出します。  
-（ポイント：`isAdminMode` は `const isAdminMode = () => ...` を **1回だけ**定義しています）
-
-> 依存ファイル：`ren.png`, `map.png`, `10.png`, `krg.png`, `s.mp3`, `u.mp3`, `b.mp3`, `t.mp3`, `kr.mp3`
-
----
-
-````html name=index.html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1582,4 +1540,4 @@ slope: ui=${getNum("slopeAssist",2.0)} x(${SLOPE_ACCEL_MULT}*${SLOPE_EXTRA_MULT}
 </script>
 </body>
 </html>
-````
+
