@@ -1,84 +1,139 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>10円ゲーム (Matter.js / ren.png から自動生成)</title>
+  <title>10円ゲーム（レバーUIは余白）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{
-      --ui-w: 320px;
-      --bg: #111;
-      --panel: #0b0b0b;
-      --border: #333;
-      --text: #eee;
-      --muted: #bbb;
-      --accent: #ffd24a;
-    }
-    html, body {
-      margin:0; padding:0;
-      height:100%;
-      background:var(--bg);
-      color:var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      overflow:hidden;
-    }
-
-    #wrap{
-      display:grid;
-      grid-template-columns: var(--ui-w) 1fr;
-      height:100vh;
-      width:100vw;
-    }
+    html, body { margin:0; padding:0; background:#111; color:#eee; font-family: system-ui, sans-serif; height:100%; overflow:hidden; }
+    #wrap { display:flex; height:100vh; overflow:hidden; }
 
     #ui{
+      width: 340px;
       padding: 12px;
       box-sizing:border-box;
-      border-right: 1px solid var(--border);
-      background:var(--panel);
+      border-right: 1px solid #333;
+      background:#0b0b0b;
       overflow:auto;
     }
     #ui h1 { font-size: 14px; margin: 0 0 10px; }
     #ui .row { margin: 10px 0; }
-    #ui .label { color:var(--muted); font-size: 11px; margin-bottom:6px; }
+    #ui .label { color:#bbb; font-size: 11px; margin-bottom:6px; }
     #ui button{
       background:#333; color:#eee; border:1px solid #555; border-radius:6px;
       padding: 7px 10px; cursor:pointer; font-size: 12px;
     }
     #ui button:hover { background:#444; }
     #ui input[type="number"]{
-      width: 100px; background:#222; color:#eee; border:1px solid #555; border-radius:6px; padding:4px 8px;
+      width: 110px; background:#222; color:#eee; border:1px solid #555; border-radius:6px; padding:4px 8px;
     }
     #hint { color:#9bd; line-height: 1.5; font-size: 12px; }
     #status { white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color:#cfc; }
 
-    /* 右側は必ず全体が見える */
-    #world{
-      position:relative;
-      overflow:hidden;
-      background:#000;
+    /* レバーUI（余白に常に存在、条件で有効/無効） */
+    #leverBox{
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    #leverTitle{
       display:flex;
+      justify-content:space-between;
       align-items:center;
-      justify-content:center;
+      gap:10px;
+      margin-bottom:8px;
+      font-size:12px;
+      color:#ffd24a;
     }
-    #world canvas{
-      display:block;
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
+    #leverMeta{
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.35;
+      margin-top:8px;
     }
+    #leverBadge{
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+    }
+    #leverBadge.off{
+      color: rgba(255,255,255,0.45);
+      border-color: rgba(255,255,255,0.10);
+    }
+    #leverBadge.max{
+      color:#fff;
+      border-color: rgba(255,0,0,0.45);
+      background: rgba(255,0,0,0.15);
+      font-weight: 700;
+    }
+
+    #pullArea{
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.35);
+      position: relative;
+      overflow:hidden;
+      user-select:none;
+      touch-action:none;
+      cursor: grab;
+    }
+    #pullArea:active{ cursor: grabbing; }
+
+    #pullFill{
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:0%;
+      background: linear-gradient(90deg, #20ff70, #ffee55, #ff8a22, #ff2a2a);
+      opacity: 0.9;
+    }
+    #pullKnob{
+      position:absolute;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+      left: 0%;
+    }
+    #leverNums{
+      margin-top:8px;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      font-size:11px;
+      color: rgba(255,255,255,0.75);
+    }
+    .chip{
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      white-space:nowrap;
+    }
+
+    /* world */
+    #world { flex: 1; position: relative; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#000; }
+    #world canvas { display:block; max-width:100%; max-height:100%; width:auto; height:auto; background:#000; }
   </style>
 </head>
 <body>
 <div id="wrap">
   <div id="ui">
-    <h1>10円ゲーム（バー式）</h1>
+    <h1>10円ゲーム（余白レバー式）</h1>
 
     <div class="row" id="hint">
-      ・入力: ren.png（黒=地形 / 赤=穴 / 緑=開始 / 黄=バー）<br>
-      ・表示: map.png を ren.png と同サイズで重ねる（背景）<br>
-      ・操作: コインが黄色範囲内の時、黄色位置のバーを「引いて→離す」で発射<br>
-      ・左3本→右へ / 右3本→左へ（水平＋少し上）
+      ・黄色（バネ）にコインが近いときだけレバーが有効になります<br>
+      ・レバーをつかんで引っ張る → 離すと戻り、その距離で発射力が決まります<br>
+      ・右側の黄色 → 左へ / 左側の黄色 → 右へ
     </div>
 
     <div class="row">
@@ -107,8 +162,35 @@
     </div>
 
     <div class="row">
+      <div class="label">レバーが有効になる距離(px)</div>
+      <input id="nearDist" type="number" value="180" step="10" min="20" max="800">
+    </div>
+
+    <div class="row">
       <div class="label">クールタイム(s)</div>
       <input id="cooldown" type="number" value="0.30" step="0.05" min="0" max="2">
+    </div>
+
+    <div class="row" id="leverBox">
+      <div id="leverTitle">
+        <div>バー（引いて→離す）</div>
+        <div id="leverBadge" class="off">OFF</div>
+      </div>
+
+      <div id="pullArea">
+        <div id="pullFill"></div>
+        <div id="pullKnob"></div>
+      </div>
+
+      <div id="leverNums">
+        <div class="chip" id="powChip">0%</div>
+        <div class="chip" id="dirChip">dir:-</div>
+      </div>
+
+      <div id="leverMeta">
+        対象: コインの近くの黄色（最寄り）<br>
+        条件: 地面に接地 & 有効距離内 のとき操作可能
+      </div>
     </div>
 
     <div class="row">
@@ -130,7 +212,6 @@
 <script>
 (() => {
   const REN_URL = "ren.png";
-  const MAP_URL = "map.png";
 
   function classifyPixel(r,g,b,a){
     if (a < 10) return "empty";
@@ -146,7 +227,6 @@
     const comps = [];
     const qx = new Int32Array(w*h);
     const qy = new Int32Array(w*h);
-
     const idx = (x,y)=>y*w+x;
     const push = (x,y,tail)=>{ qx[tail]=x; qy[tail]=y; return tail+1; };
 
@@ -187,7 +267,6 @@
         });
       }
     }
-
     comps.sort((a,b)=>b.area-a.area);
     return comps;
   }
@@ -212,7 +291,6 @@
     for(let i=0;i<points.length;i+=sampleStep){
       const p = points[i];
       if (!p) continue;
-
       let bestJ = -1;
       let bestD2 = Infinity;
       for(let j=i+1;j<Math.min(points.length, i+200);j++){
@@ -257,7 +335,16 @@
   const maxImpulseInput = document.getElementById("maxImpulse");
   const upwardBiasInput = document.getElementById("upwardBias");
   const maxPullInput = document.getElementById("maxPull");
+  const nearDistInput = document.getElementById("nearDist");
   const cooldownInput = document.getElementById("cooldown");
+
+  // レバーUI elements
+  const pullArea = document.getElementById("pullArea");
+  const pullFill = document.getElementById("pullFill");
+  const pullKnob = document.getElementById("pullKnob");
+  const leverBadge = document.getElementById("leverBadge");
+  const powChip = document.getElementById("powChip");
+  const dirChip = document.getElementById("dirChip");
 
   const Matter = window.Matter;
   const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
@@ -270,16 +357,21 @@
   let spawnPoint={x:100,y:100};
 
   let holes=[];
-  let bars=[]; // バー（黄色）: { center, dir, aabb, cooldownUntil, state, pullRatio, pullPx, armedAt }
+  let springs=[]; // { sensor, center, dir, aabb, cooldownUntil }
 
   let touchingGround = false;
   let lastGroundNormal = null;
 
-  // 入力（バーを直接ドラッグ）
-  let dragging = false;
-  let dragBar = null;
-  let dragStart = null;
-  let dragNow = null;
+  // 余白レバー状態
+  let lever = {
+    enabled: false,
+    activeSpring: null,   // 最寄りの黄色
+    dragging: false,
+    pointerId: null,
+    startX: 0,
+    currentX: 0,
+    pullRatio: 0
+  };
 
   function setStatus(lines){ statusEl.textContent = lines.join("\n"); }
 
@@ -292,18 +384,17 @@
     }
     if (runner) { Runner.stop(runner); runner=null; }
     if (engine) { World.clear(engine.world, false); Engine.clear(engine); engine=null; }
-    holes=[]; bars=[];
+    holes=[]; springs=[];
     coin=null;
-    dragging=false; dragBar=null; dragStart=null; dragNow=null;
-    window.removeEventListener("resize", resizeCanvasToFit);
+    lever.enabled=false; lever.activeSpring=null; lever.dragging=false; lever.pullRatio=0;
   }
 
-  async function loadImage(url){
+  async function loadRenPng(){
     return new Promise((resolve,reject)=>{
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = reject;
-      img.src = url + "?t=" + Date.now();
+      img.src = REN_URL + "?t=" + Date.now();
     });
   }
 
@@ -363,12 +454,9 @@
     Render.run(render);
     Runner.run(runner, engine);
 
-    // map.png を ren.png と同サイズで canvas 背景として表示（座標一致）
-    // ※解析は ren.png のまま。見た目だけ map.png にする
-    render.options.background = `url(${MAP_URL})`;
+    render.options.background = `url(${REN_URL})`;
     render.canvas.style.backgroundSize = "100% 100%";
     render.canvas.style.backgroundRepeat = "no-repeat";
-    render.canvas.style.backgroundPosition = "0 0";
 
     requestAnimationFrame(resizeCanvasToFit);
     window.addEventListener("resize", resizeCanvasToFit);
@@ -378,10 +466,9 @@
     if (!render) return;
     const canvas = render.canvas;
     const worldRect = elWorld.getBoundingClientRect();
-    const w = mapW, h = mapH;
-    const scale = Math.min(worldRect.width / w, worldRect.height / h);
-    canvas.style.width  = (w * scale) + "px";
-    canvas.style.height = (h * scale) + "px";
+    const scale = Math.min(worldRect.width / mapW, worldRect.height / mapH);
+    canvas.style.width  = (mapW * scale) + "px";
+    canvas.style.height = (mapH * scale) + "px";
   }
 
   function addCoin(){
@@ -393,11 +480,7 @@
       frictionStatic: 0.85,
       frictionAir: 0.01,
       density: 0.005,
-      render: {
-        fillStyle: "#b87333",
-        strokeStyle: "#5b2a12",
-        lineWidth: 2
-      }
+      render: { fillStyle: "#b87333", strokeStyle: "#5b2a12", lineWidth: 2 }
     });
 
     World.add(engine.world, coin);
@@ -427,17 +510,16 @@
     World.add(engine.world, holes);
   }
 
-  function addBarsFromYellowComponents(yellowComps){
-    bars = [];
+  function addSpringsFromComponents(yellowComps){
+    springs = [];
     const centerX = mapW / 2;
-
-    // 面積上位6個（左3/右3想定）
     const picked = yellowComps.slice(0, 6);
 
     for (const c of picked){
-      const dir = (c.centroid.x < centerX) ? +1 : -1; // 左側→右へ、右側→左へ
-      const pad = 8;
+      // 要望：右側の黄色は左へ、左側の黄色は右へ
+      const dir = (c.centroid.x < centerX) ? +1 : -1;
 
+      const pad = 8;
       const aabb = {
         minX: c.aabb.minX - pad,
         minY: c.aabb.minY - pad,
@@ -445,19 +527,26 @@
         maxY: c.aabb.maxY + pad,
       };
 
-      bars.push({
+      const sensor = Bodies.rectangle(
+        (aabb.minX+aabb.maxX)/2,
+        (aabb.minY+aabb.maxY)/2,
+        Math.max(10, aabb.maxX-aabb.minX),
+        Math.max(10, aabb.maxY-aabb.minY),
+        { isStatic:true, isSensor:true,
+          render:{ fillStyle:"rgba(255,255,0,0.10)", strokeStyle:"rgba(255,255,0,0.35)", lineWidth:1 }
+        }
+      );
+      sensor.label = "springSensor";
+
+      springs.push({
+        sensor,
         center: { x: c.centroid.x, y: c.centroid.y },
         dir,
-        aabb,
         cooldownUntil: 0,
-
-        // 状態
-        state: "Idle",        // Idle / Pulling / Armed / Cooldown
-        pullRatio: 0,         // 0..1
-        pullPx: 0,            // 現在引き量(px)
-        armedAt: 0
+        aabb
       });
     }
+    World.add(engine.world, springs.map(s=>s.sensor));
   }
 
   function addTerrainFromBlack(blackMask){
@@ -481,142 +570,147 @@
 
   function nowSec(){ return performance.now()/1000; }
 
-  function coinInsideBar(bar){
+  function coinInsideSpring(s){
     const p = coin.position;
-    const a = bar.aabb;
+    const a = s.aabb;
     return (p.x >= a.minX && p.x <= a.maxX && p.y >= a.minY && p.y <= a.maxY);
   }
 
-  function nearestActiveBar(){
+  function nearestSpringByDistance(){
+    const nearDist = Math.max(0, parseFloat(nearDistInput.value) || 180);
     let best=null, bestD2=Infinity;
-    for (const b of bars){
-      if (!coinInsideBar(b)) continue;
-      const dx = coin.position.x - b.center.x;
-      const dy = coin.position.y - b.center.y;
-      const d2 = dx*dx+dy*dy;
-      if (d2 < bestD2){ bestD2=d2; best=b; }
+
+    for (const s of springs){
+      const dx = coin.position.x - s.center.x;
+      const dy = coin.position.y - s.center.y;
+      const d2 = dx*dx + dy*dy;
+
+      // 「黄色の近く」判定：AABB内 or 中心距離
+      const near = coinInsideSpring(s) || (d2 <= nearDist*nearDist);
+      if (!near) continue;
+
+      if (d2 < bestD2){
+        bestD2 = d2;
+        best = s;
+      }
     }
     return best;
   }
 
-  function launchFromBar(bar){
-    // Release瞬間に1回だけ
+  function setLeverUI(enabled, pullRatio, spring){
+    lever.enabled = enabled;
+    lever.activeSpring = spring;
+
+    const pct = Math.round(pullRatio * 100);
+    pullFill.style.width = pct + "%";
+    pullKnob.style.left = pct + "%";
+    powChip.textContent = pct + "%";
+
+    if (!enabled){
+      leverBadge.textContent = "OFF";
+      leverBadge.classList.add("off");
+      leverBadge.classList.remove("max");
+      dirChip.textContent = "dir:-";
+      pullArea.style.opacity = "0.45";
+      return;
+    }
+
+    pullArea.style.opacity = "1";
+    leverBadge.classList.remove("off");
+    dirChip.textContent = spring ? (spring.dir > 0 ? "dir:→(右)" : "dir:←(左)") : "dir:-";
+
+    const isMax = pullRatio >= 0.98;
+    if (isMax){
+      leverBadge.textContent = "MAX";
+      leverBadge.classList.add("max");
+    } else {
+      leverBadge.textContent = lever.dragging ? "CHARGING" : "READY";
+      leverBadge.classList.remove("max");
+    }
+  }
+
+  function canOperateLever(s){
+    if (!s) return false;
     const now = nowSec();
-    const cooldown = Math.max(0, parseFloat(cooldownInput.value) || 0.30);
-    if (now < bar.cooldownUntil) return;
+    if (now < s.cooldownUntil) return false;
+    if (!touchingGround) return false;
+    // “近く”判定を満たしていること（nearestSpringByDistanceの結果を使う）
+    return true;
+  }
+
+  function launchFromSpring(s, pullRatio){
+    const now = nowSec();
+    if (now < s.cooldownUntil) return;
     if (!touchingGround) return;
-    if (!coinInsideBar(bar)) return;
 
     const maxImpulse = parseFloat(maxImpulseInput.value) || 18;
     const upwardBias = parseFloat(upwardBiasInput.value) || 0.22;
+    const cooldown = Math.max(0, parseFloat(cooldownInput.value) || 0.30);
 
-    const impulse = maxImpulse * bar.pullRatio;
+    const impulse = maxImpulse * Math.max(0, Math.min(1, pullRatio));
 
-    // 速度リセット → 方向へ速度上書き（要件）
-    Body.setVelocity(coin, {
-      x: bar.dir * impulse,
-      y: -impulse * upwardBias
-    });
+    // 速度リセットして一回だけ発射（要件）
+    Body.setVelocity(coin, { x: s.dir * impulse, y: -impulse * upwardBias });
     Body.setAngularVelocity(coin, 0);
 
-    // 状態遷移
-    bar.pullRatio = 0;
-    bar.pullPx = 0;
-    bar.state = "Cooldown";
-    bar.cooldownUntil = now + cooldown;
+    s.cooldownUntil = now + cooldown;
   }
 
-  // ---- 入力（canvas座標→ワールド座標に変換） ----
-  function getMouseWorldPos(e){
-    const canvas = render.canvas;
-    const rect = canvas.getBoundingClientRect();
+  // 余白レバー入力（引っ張る）
+  pullArea.addEventListener("pointerdown", (e) => {
+    if (!coin) return;
+    if (!lever.enabled) return;
+    if (!canOperateLever(lever.activeSpring)) return;
 
-    // canvas内座標（CSS表示）
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    lever.dragging = true;
+    lever.pointerId = e.pointerId;
+    lever.startX = e.clientX;
+    lever.currentX = e.clientX;
+    pullArea.setPointerCapture(e.pointerId);
+  });
 
-    // ワールドに戻す（論理サイズ mapW/mapH）
-    const sx = mapW / rect.width;
-    const sy = mapH / rect.height;
-    return { x: cx * sx, y: cy * sy };
-  }
+  pullArea.addEventListener("pointermove", (e) => {
+    if (!lever.dragging) return;
+    if (lever.pointerId !== e.pointerId) return;
+    lever.currentX = e.clientX;
 
-  function barHitTest(bar, worldPos){
-    // “バー本体”を黄色の中心から水平に伸びるものとして操作
-    // クリック/タッチできる判定は黄色AABBを使う（確実）
-    const a = bar.aabb;
-    return (worldPos.x >= a.minX && worldPos.x <= a.maxX && worldPos.y >= a.minY && worldPos.y <= a.maxY);
-  }
+    const s = lever.activeSpring;
+    if (!s) return;
 
-  function installInput(){
-    const canvas = render.canvas;
+    const maxPull = Math.max(10, parseFloat(maxPullInput.value) || 150);
 
-    canvas.addEventListener("pointerdown", (e) => {
-      if (!coin) return;
+    // 引き量：発射方向の逆へ引いた分だけ溜まる
+    // s.dir=+1(右に飛ばす) -> 左へ引く(Δx<0)で増える
+    // s.dir=-1(左に飛ばす) -> 右へ引く(Δx>0)で増える
+    const dx = lever.currentX - lever.startX;
+    const pullSigned = -s.dir * dx;
+    const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
+    lever.pullRatio = Math.max(0, Math.min(1, pullPx / maxPull));
 
-      const b = nearestActiveBar();
-      if (!b) return;
+    setLeverUI(true, lever.pullRatio, s);
+  });
 
-      // コインが範囲内 & さらに押した位置がそのバー周辺なら開始
-      const wp = getMouseWorldPos(e);
-      if (!barHitTest(b, wp)) return;
+  function releasePointer(e){
+    if (!lever.dragging) return;
+    if (lever.pointerId !== e.pointerId) return;
 
-      const now = nowSec();
-      if (now < b.cooldownUntil) return;
-      if (!touchingGround) return;
+    lever.dragging = false;
 
-      dragging = true;
-      dragBar = b;
-      dragStart = wp;
-      dragNow = wp;
+    const s = lever.activeSpring;
+    const ratio = lever.pullRatio;
 
-      b.state = "Pulling";
-      b.armedAt = 0;
-
-      canvas.setPointerCapture(e.pointerId);
-    });
-
-    canvas.addEventListener("pointermove", (e) => {
-      if (!dragging || !dragBar) return;
-      dragNow = getMouseWorldPos(e);
-
-      const maxPull = Math.max(10, parseFloat(maxPullInput.value) || 150);
-
-      // 引き量は「発射方向の逆方向に引いた分」だけカウント
-      // 左バー(dir=+1): 右に飛ばす → 左に引くと溜まる
-      // 右バー(dir=-1): 左に飛ばす → 右に引くと溜まる
-      const dx = dragNow.x - dragStart.x;
-
-      // dir * dx が負なら“逆方向に引いている”
-      const pullSigned = -dragBar.dir * dx;
-      const pullPx = Math.max(0, Math.min(maxPull, pullSigned));
-
-      dragBar.pullPx = pullPx;
-      dragBar.pullRatio = Math.max(0, Math.min(1, pullPx / maxPull));
-
-      // 引いたまま止まっている＝Armed（ここでは一定以上で“保持”扱い）
-      // ※厳密な「静止判定」は難しいので、ドラッグ中でも pullRatio>0 なら Armed相当と見なす
-      // ただし stateは Pulling のままで問題ない（見た目はpullRatioで出る）
-    });
-
-    function release(e){
-      if (!dragging || !dragBar) return;
-
-      const b = dragBar;
-      dragging = false;
-      dragBar = null;
-
-      // Release：離した瞬間にのみ発動
-      if (b.pullRatio > 0){
-        launchFromBar(b);
-      } else {
-        b.state = "Idle";
-      }
+    // 離した瞬間に発射
+    if (s && ratio > 0 && canOperateLever(s)){
+      launchFromSpring(s, ratio);
     }
 
-    canvas.addEventListener("pointerup", release);
-    canvas.addEventListener("pointercancel", release);
+    // 戻る（UIは0に戻る）
+    lever.pullRatio = 0;
+    setLeverUI(lever.enabled, 0, lever.activeSpring);
   }
+
+  pullArea.addEventListener("pointerup", releasePointer);
+  pullArea.addEventListener("pointercancel", releasePointer);
 
   function installEvents(){
     Events.on(engine, "collisionActive", (ev) => {
@@ -643,32 +737,41 @@
     Events.on(engine, "afterUpdate", () => {
       if (!coin) return;
 
-      // クールダウン解除
-      const now = nowSec();
-      for (const b of bars){
-        if (b.state === "Cooldown" && now >= b.cooldownUntil){
-          b.state = "Idle";
-        }
-        // Idleでもコインが範囲外なら引きは戻す（見た目安定）
-        if (!dragging && !coinInsideBar(b)){
-          b.pullRatio = 0;
-          b.pullPx = 0;
-          if (b.state !== "Cooldown") b.state = "Idle";
+      // activeSpringの選択（常に最寄り）
+      const s = nearestSpringByDistance();
+
+      const enabled = !!s && canOperateLever(s);
+      if (!lever.dragging){
+        // ドラッグしてない時だけ対象を更新（ドラッグ中に対象が切り替わると事故るため）
+        lever.activeSpring = s;
+        lever.enabled = enabled;
+      } else {
+        // ドラッグ中に対象が消えたら強制OFF
+        if (!lever.activeSpring || !canOperateLever(lever.activeSpring)){
+          lever.dragging = false;
+          lever.pullRatio = 0;
+          lever.enabled = false;
+          lever.activeSpring = null;
         }
       }
 
+      setLeverUI(lever.enabled, lever.pullRatio, lever.activeSpring);
+
       // 状態表示
-      const active = nearestActiveBar();
+      const sp = coin.speed.toFixed(2);
+      const av = coin.angularVelocity.toFixed(3);
+      const dir = lever.activeSpring ? lever.activeSpring.dir : 0;
+
       setStatus([
         `map: ${mapW}x${mapH}`,
-        `coin: speed=${coin.speed.toFixed(2)} angVel=${coin.angularVelocity.toFixed(3)}`,
+        `coin: r=${(parseFloat(coinRInput.value)||32)} speed=${sp} angVel=${av}`,
         `touchingGround: ${touchingGround}`,
-        `bars: ${bars.length}, holes: ${holes.length}`,
-        active ? `activeBar: dir=${active.dir} state=${active.state} pull=${Math.round(active.pullRatio*100)}%` : `activeBar: -`,
-        dragging ? `dragging: yes` : `dragging: no`
+        `springs(yellow): ${springs.length}, holes(red): ${holes.length}`,
+        `lever: enabled=${lever.enabled} dragging=${lever.dragging} power=${Math.round(lever.pullRatio*100)}%`,
+        `activeSpring: ${lever.activeSpring ? (dir>0 ? "LEFT(Y)→RIGHT" : "RIGHT(Y)→LEFT") : "-"}`
       ]);
 
-      // 嘘静止摩擦（元のまま）
+      // 嘘静止摩擦（元の挙動）
       if (!touchingGround || !lastGroundNormal) return;
 
       const n = lastGroundNormal;
@@ -688,90 +791,27 @@
       }
     });
 
-    // バーの視覚（重要：UIが「必ず見える」）
+    // 黄色エリア可視化（どれが対象か分かるように）
     Events.on(render, "afterRender", () => {
       const ctx = render.context;
       if (!coin) return;
 
-      const maxPull = Math.max(10, parseFloat(maxPullInput.value) || 150);
+      for (const s of springs){
+        const active = (s === lever.activeSpring);
+        const inside = coinInsideSpring(s);
 
-      for (const b of bars){
-        const inside = coinInsideBar(b);
-
-        // 有効範囲枠（黄色領域）
         ctx.save();
-        ctx.strokeStyle = inside ? "rgba(255,255,0,0.75)" : "rgba(255,255,0,0.25)";
-        ctx.lineWidth = inside ? 3 : 2;
-        ctx.setLineDash(inside ? [10,6] : [6,6]);
-        const a = b.aabb;
+        ctx.strokeStyle = active ? "rgba(255,220,80,0.95)" : (inside ? "rgba(255,255,0,0.55)" : "rgba(255,255,0,0.22)");
+        ctx.lineWidth = active ? 4 : 2;
+        ctx.setLineDash(active ? [] : [8,6]);
+
+        const a = s.aabb;
         ctx.strokeRect(a.minX, a.minY, a.maxX-a.minX, a.maxY-a.minY);
-        ctx.setLineDash([]);
 
-        // バー本体（アンカー→引いた分だけ伸びる）
-        // アンカーは中心。引く方向は発射方向の逆
-        const anchor = b.center;
-        const pullDir = { x: -b.dir, y: 0 };
-        const end = {
-          x: anchor.x + pullDir.x * (b.pullPx || 0),
-          y: anchor.y
-        };
-
-        // 状態で色変化
-        const ratio = b.pullRatio || 0;
-        const isMax = ratio >= 0.98;
-        const inCooldown = (b.state === "Cooldown");
-
-        let barColor = "rgba(255,255,255,0.65)";
-        if (inCooldown) barColor = "rgba(180,180,180,0.35)";
-        else if (isMax) barColor = "rgba(255,60,60,0.95)";
-        else if (ratio > 0.5) barColor = "rgba(255,170,40,0.9)";
-        else if (ratio > 0) barColor = "rgba(110,255,120,0.85)";
-
-        // 最大時に少し震える
-        let shake = 0;
-        if (isMax && inside && !inCooldown){
-          shake = Math.sin(performance.now()/30) * 1.2;
-        }
-
-        // バー線
-        ctx.strokeStyle = barColor;
-        ctx.lineWidth = 10;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(anchor.x, anchor.y + shake);
-        ctx.lineTo(end.x, end.y + shake);
-        ctx.stroke();
-
-        // アンカー点
-        ctx.fillStyle = inside ? "rgba(255,255,0,0.85)" : "rgba(255,255,0,0.35)";
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, 6, 0, Math.PI*2);
-        ctx.fill();
-
-        // ゲージ（バーの横に%表示）
-        const pct = Math.round(ratio * 100);
-        ctx.font = "bold 12px sans-serif";
+        ctx.font = "bold 16px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(anchor.x-26, anchor.y-34, 52, 18);
-        ctx.fillStyle = "#fff";
-        ctx.fillText(pct + "%", anchor.x, anchor.y-20);
-
-        // 方向矢印
-        ctx.font = "bold 18px sans-serif";
-        ctx.fillStyle = inside ? "rgba(255,255,0,0.95)" : "rgba(255,255,0,0.40)";
-        ctx.fillText(b.dir > 0 ? "→" : "←", anchor.x, anchor.y-48);
-
-        // Cooldown表示
-        if (inCooldown){
-          ctx.font = "bold 12px sans-serif";
-          ctx.fillStyle = "rgba(255,255,255,0.75)";
-          ctx.fillText("COOLDOWN", anchor.x, anchor.y+28);
-        } else if (isMax && inside){
-          ctx.font = "bold 12px sans-serif";
-          ctx.fillStyle = "rgba(255,60,60,0.95)";
-          ctx.fillText("MAX", anchor.x, anchor.y+28);
-        }
+        ctx.fillStyle = active ? "rgba(255,220,80,0.95)" : "rgba(255,255,0,0.6)";
+        ctx.fillText(s.dir > 0 ? "→" : "←", s.center.x, s.center.y - 22);
 
         ctx.restore();
       }
@@ -780,15 +820,10 @@
 
   async function rebuild(){
     destroyWorld();
-    setStatus(["loading ren.png / map.png ..."]);
+    setStatus(["loading ren.png..."]);
 
-    // ren.png を解析用にロード（サイズ基準）
-    renImage = await loadImage(REN_URL);
+    renImage = await loadRenPng();
     buildRenImageData(renImage);
-
-    // map.png は「表示用」なので、ロードだけして存在確認
-    // （背景URLに使うだけだが、404だと真っ黒になるので先に失敗を検出）
-    try { await loadImage(MAP_URL); } catch(e){ console.warn("map.png load failed:", e); }
 
     createEngineAndRenderer();
 
@@ -801,22 +836,20 @@
 
     const terrainInfo = addTerrainFromBlack(black);
     addHolesFromComponents(redComps);
-    addBarsFromYellowComponents(yellowComps);
+    addSpringsFromComponents(yellowComps);
     addCoin();
 
-    installInput();
     installEvents();
 
     setStatus([
       `map: ${mapW}x${mapH}`,
       `spawn: (${spawnPoint.x.toFixed(1)}, ${spawnPoint.y.toFixed(1)})`,
       `terrain boundaryPts=${terrainInfo.boundaryPtsCount} segs=${terrainInfo.segCount}`,
-      `holes=${redComps.length} bars=${Math.min(6, yellowComps.length)}`,
+      `holes=${redComps.length} springs=${Math.min(6, yellowComps.length)}`,
       `ready`
     ]);
   }
 
-  // UI
   reloadBtn.addEventListener("click", () => rebuild());
   respawnBtn.addEventListener("click", () => respawn());
   gravityYInput.addEventListener("change", () => { if(engine) engine.gravity.y = parseFloat(gravityYInput.value)||1; });
